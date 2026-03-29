@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 216 25% 97%;
+    --foreground: 210 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 30% 12%;
+
+    --primary: 197 100% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 60% 16%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 216 20% 93%;
+    --muted-foreground: 210 10% 42%;
+
+    --accent: 197 80% 94%;
+    --accent-foreground: 210 60% 16%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 216 18% 88%;
+    --input: 216 18% 88%;
+    --ring: 197 100% 53%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 208 60% 18%;
+    --sidebar-background-to: 208 48% 24%;
+    --sidebar-foreground: 210 20% 72%;
+    --sidebar-primary: 197 100% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 197 90% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 208 40% 26%;
+    --sidebar-ring: 197 100% 53%;
+
+    --success: 152 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --shadow-card: 0 2px 8px -2px hsl(var(--foreground) / 0.06), 0 1px 3px -1px hsl(var(--foreground) / 0.04);
+    --shadow-card-hover: 0 12px 32px -8px hsl(var(--foreground) / 0.12), 0 6px 14px -6px hsl(var(--foreground) / 0.08);
+    --shadow-topbar: 0 1px 4px 0 hsl(var(--foreground) / 0.06);
+    --shadow-elevated: 0 16px 48px -12px hsl(var(--foreground) / 0.16);
+  }
+
+  .dark {
+    --background: 210 50% 6%;
+    --foreground: 216 20% 93%;
+    --card: 210 45% 10%;
+    --card-foreground: 216 20% 93%;
+    --popover: 210 45% 10%;
+    --popover-foreground: 216 20% 93%;
+    --primary: 197 100% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 22%;
+    --secondary-foreground: 216 20% 93%;
+    --muted: 210 35% 16%;
+    --muted-foreground: 216 10% 55%;
+    --accent: 210 40% 18%;
+    --accent-foreground: 216 20% 93%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 216 20% 93%;
+    --border: 210 35% 20%;
+    --input: 210 35% 20%;
+    --ring: 197 100% 53%;
+    --sidebar-background: 210 50% 8%;
+    --sidebar-foreground: 216 20% 78%;
+    --sidebar-primary: 197 100% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 45% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 210 40% 16%;
+    --sidebar-ring: 197 100% 53%;
+    --success: 152 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 85% 45%;
+    --warning-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  }
+
+  .gradient-primary-text {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .shadow-topbar {
+    box-shadow: var(--shadow-topbar);
+  }
+}
+
+/* Print styles for document templates */
+@media print {
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  @page {
+    margin: 15mm;
+    size: A4;
+  }
+}
+
+.print-only {
+  display: none;
+}

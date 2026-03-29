@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.validate_same_company_ref(uuid, text, uuid) FROM authenticated, anon;
