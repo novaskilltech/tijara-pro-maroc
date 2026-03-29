@@ -36,11 +36,11 @@ export default function LandingPage() {
                 <CheckCircle2 className="h-4 w-4" />
                 <span className="text-xs font-bold tracking-wider uppercase">Solution cloud n°1 au Maroc</span>
               </div>
-              <h1 className="text-4xl md:text-6x l lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
                 Gérez votre business <br/>
                 <span className="gradient-primary-text">en toute simplicité.</span>
               </h1>
-              <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
                 Tijara Pro est l'ERP cloud tout-en-un conçu pour les commerçants et PME marocaines. 
                 Ventes, Stocks, Achats et Comptabilité centralisés en un seul endroit sécurisé.
               </p>
@@ -77,7 +77,7 @@ export default function LandingPage() {
       </section>
 
       {/* Modules Section */}
-      <section id="features" className="py-24 bg-muted/30">
+      <section id="features" className="py-12 md:py-16 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl md:text-5xl font-extrabold mb-4 tracking-tight text-foreground">Le centre de pilotage de <span className="text-primary italic">votre ambition.</span></h2>
@@ -118,7 +118,7 @@ export default function LandingPage() {
       </section>
 
       {/* Detailed Features Zoom - Stock */}
-      <section className="py-24 bg-background">
+      <section className="py-12 md:py-16 bg-background">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="w-full lg:w-1/2 order-2 lg:order-1 animate-fade-in">
@@ -148,7 +148,7 @@ export default function LandingPage() {
       </section>
 
       {/* Detailed Features Zoom - Invoicing */}
-      <section className="py-24 bg-muted/20">
+      <section className="py-12 md:py-16 bg-muted/20">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             <div className="w-full lg:w-1/2 animate-fade-in-up">
@@ -183,7 +183,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-      <section className="py-24 overflow-hidden relative">
+      <section className="py-12 md:py-16 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row items-center gap-16">
@@ -228,21 +228,21 @@ export default function LandingPage() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-24 bg-background relative overflow-hidden">
+      <section id="about" className="py-12 md:py-16 bg-background relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16 animate-fade-in-up">
-              <h2 className="text-3xl md:text-6xl font-black mb-8 tracking-tight italic">
+            <div className="text-center mb-10 animate-fade-in-up">
+              <h2 className="text-3xl md:text-6xl font-black mb-6 tracking-tight italic">
                 La technologie au service <br/>
                 <span className="gradient-primary-text">du commerce marocain.</span>
               </h2>
-              <div className="w-24 h-1 bg-primary mx-auto rounded-full mb-12" />
+              <div className="w-24 h-1 bg-primary mx-auto rounded-full mb-8" />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-lg leading-relaxed">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-lg leading-relaxed">
               <div className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-                <p className="mb-6 font-medium text-foreground">
+                <p className="mb-4 font-medium text-foreground">
                   Tijara Pro est né de la volonté de moderniser la gestion des PME au Maroc. Trop souvent confrontées à des outils complexes ou inadaptés, nous avons créé une plateforme qui combine puissance et simplicité.
                 </p>
                 <p className="text-muted-foreground">
@@ -271,7 +271,7 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-24 bg-primary/5">
+      <section className="py-12 md:py-16 bg-primary/5">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Prêt à moderniser votre gestion ?</h2>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">Rejoignez les entreprises marocaines qui font confiance à Tijara Pro pour leur croissance.</p>
