@@ -1,20 +1,22 @@
-import type { Invoice, CreditNote } from "@/types/invoice";
+import type { Invoice } from "@/types/invoice";
 
 export function exportToCsv(invoices: Invoice[], filename: string) {
-  const headers = ["N° Facture", "Type", "Date", "Tiers", "Statut", "Total HT", "TVA", "Total TTC", "Solde"];
+  const headers = ["N° Facture", "Type", "Date", "Tiers", "ICE", "Statut", "Total HT", "TVA", "Total TTC", "Solde"];
   const rows = invoices.map((inv) => [
     inv.invoice_number,
     inv.invoice_type === "client" ? "Client" : "Fournisseur",
     inv.invoice_date,
     inv.customer?.name || inv.supplier?.name || "",
+    inv.customer?.ice || inv.supplier?.ice || "-",
     inv.status,
-    inv.subtotal_ht.toFixed(2),
-    inv.total_tva.toFixed(2),
-    inv.total_ttc.toFixed(2),
-    inv.remaining_balance.toFixed(2),
+    inv.subtotal_ht.toFixed(2).replace(".", ","),
+    inv.total_tva.toFixed(2).replace(".", ","),
+    inv.total_ttc.toFixed(2).replace(".", ","),
+    inv.remaining_balance.toFixed(2).replace(".", ","),
   ]);
 
   const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+  // UTF-8 BOM for Excel compatibility
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

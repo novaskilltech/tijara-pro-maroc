@@ -10,19 +10,27 @@ import { CompanyProvider } from "@/hooks/useCompany";
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
+import { ThemeProvider } from "next-themes";
 
 
 // Pages avec Lazy Loading
 const Index = lazy(() => import("./pages/Index"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const TableauxDeBord = lazy(() => import("./pages/TableauxDeBord"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+
+// Legal
+const TermsOfUse = lazy(() => import("./pages/legal/TermsOfUse"));
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 
 // Auth
 const Login = lazy(() => import("./pages/auth/Login"));
 const Register = lazy(() => import("./pages/auth/Register"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+const MFAChallenge = lazy(() => import("./pages/auth/MFAChallenge"));
+const Profil = lazy(() => import("./pages/Profil"));
 
 // Administration
 const SystemeUtilisateurs = lazy(() => import("./pages/SystemeUtilisateurs"));
@@ -121,10 +129,11 @@ queryClient.getQueryCache().subscribe(() => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="tijara-theme">
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <AuthProvider>
           <CompanyProvider>
           <PermissionsProvider>
@@ -134,11 +143,18 @@ const App = () => (
                 <Route path="/auth/register" element={<Register />} />
                 <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/auth/mfa" element={<MFAChallenge />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
 
+                {/* Public routes */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/terms" element={<TermsOfUse />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+
                 {/* Protected routes */}
-                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/home" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 <Route path="/tableaux-de-bord" element={<ProtectedRoute><TableauxDeBord /></ProtectedRoute>} />
+                <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
 
                 {/* Administration */}
                 <Route path="/systeme/utilisateurs" element={<ProtectedRoute requiredRoles={["super_admin"]}><SystemeUtilisateurs /></ProtectedRoute>} />
@@ -213,6 +229,7 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
-  const { user, roles, loading } = useAuth();
+  const { user, roles, loading, aal, mfaFactors } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -25,6 +25,12 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
+  // Redirect to MFA challenge if required and not verified (AAL1 but factors exist)
+  const hasActiveMFA = mfaFactors && mfaFactors.some(f => f.status === 'verified');
+  if (hasActiveMFA && aal === 'aal1' && location.pathname !== '/auth/mfa') {
+    return <Navigate to="/auth/mfa" state={{ from: location }} replace />;
+  }
+
   // Check required roles if specified
   if (requiredRoles && requiredRoles.length > 0) {
     const hasAccess = requiredRoles.some((r) => roles.includes(r));
@@ -35,8 +41,9 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
 
   // Check module access from path
   const pathKey = Object.keys(ROLE_MODULE_ACCESS)
-    .filter((k) => k !== "/")
-    .find((k) => location.pathname.startsWith(k)) || "/";
+    .filter((k) => k !== "/home")
+    .sort((a, b) => b.length - a.length)
+    .find((k) => location.pathname.startsWith(k)) || "/home";
 
   const allowedRoles = ROLE_MODULE_ACCESS[pathKey];
   if (allowedRoles && roles.length > 0) {

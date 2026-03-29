@@ -9,7 +9,9 @@ export type PdfDocumentType =
   | "commande_fournisseur"
   | "reception"
   | "facture_fournisseur"
-  | "avoir_fournisseur";
+  | "avoir_fournisseur"
+  | "journal_ventes"
+  | "journal_achats";
 
 export interface PdfCompany {
   raison_sociale: string;
@@ -93,6 +95,8 @@ export const DOC_TITLES: Record<PdfDocumentType, string> = {
   reception: "BON DE RÉCEPTION",
   facture_fournisseur: "FACTURE FOURNISSEUR",
   avoir_fournisseur: "AVOIR FOURNISSEUR",
+  journal_ventes: "JOURNAL DES VENTES",
+  journal_achats: "JOURNAL DES ACHATS",
 };
 
 export const DOC_PARTY_LABEL: Record<PdfDocumentType, string> = {
@@ -105,6 +109,8 @@ export const DOC_PARTY_LABEL: Record<PdfDocumentType, string> = {
   reception: "FOURNISSEUR",
   facture_fournisseur: "FOURNISSEUR",
   avoir_fournisseur: "FOURNISSEUR",
+  journal_ventes: "TIERS",
+  journal_achats: "TIERS",
 };
 
 // Accent colors (TIJARAPRO brand)

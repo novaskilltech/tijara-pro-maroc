@@ -1,4 +1,5 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Bell, User, LogOut, UserCircle } from "lucide-react";
@@ -6,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ROLE_LABELS } from "@/types/auth";
 import { Badge } from "@/components/ui/badge";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -16,6 +18,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   const { profile, roles, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,8 +42,9 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
             {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <CompanySwitcher />
-            <button className="p-2 rounded-md hover:bg-muted transition-colors relative">
+            <button className="p-2 rounded-md hover:bg-muted transition-colors relative text-muted-foreground hover:text-foreground">
               <Bell className="h-4 w-4 text-muted-foreground" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
             </button>
@@ -84,7 +88,7 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
                     </div>
                   </div>
                   <button
-                    onClick={() => { setProfileOpen(false); }}
+                    onClick={() => { setProfileOpen(false); navigate("/profil"); }}
                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                   >
                     <UserCircle className="h-4 w-4" />

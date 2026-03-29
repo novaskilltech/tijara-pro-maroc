@@ -852,10 +852,6 @@ export function ReceptionFormPage({ reception, purchaseOrderId, onBack, onSaved,
               />
             </div>
           </TabsContent>
-            <div className="bg-card border rounded-lg p-6 min-h-[200px]">
-              <div className="text-muted-foreground">Notes de la réception...</div>
-            </div>
-          </TabsContent>
 
           {reception?.id && (
             <TabsContent value="history">

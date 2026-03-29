@@ -21,6 +21,9 @@ import {
 import { useCompany } from "@/hooks/useCompany";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, getDaysInMonth } from "date-fns";
 import { fr } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardInsights } from "@/components/dashboard/DashboardInsights";
+import { subMonths, isSameMonth, parseISO } from "date-fns";
 
 const MONTH_LABELS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
 const MONTH_FULL_LABELS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -136,6 +139,7 @@ function getQuickFilterRange(filter: QuickFilter): { from: string; to: string } 
 const TableauxDeBord = () => {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState<KPI>({
     revenue: 0, supplierDebt: 0, customerUnpaid: 0,
     cashPosition: 0, paidInvoices: 0, pendingInvoices: 0,
@@ -158,16 +162,13 @@ const TableauxDeBord = () => {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  // Month drill-down state for the evolution chart — default to current month since quickFilter defaults to "month"
+  // Month drill-down state for the evolution chart
   const [drillMonth, setDrillMonth] = useState<number | null>(currentMonth);
 
-  // Compute effective date range — single source of truth
+  // Compute effective date range
   const effectiveRange = useMemo(() => {
     if (quickFilter === "year") {
-      return {
-        from: `${selectedYear}-01-01`,
-        to: `${selectedYear}-12-31`,
-      };
+      return { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
     }
     if (quickFilter === "custom") {
       return {
@@ -180,11 +181,19 @@ const TableauxDeBord = () => {
 
   const dateFrom = effectiveRange.from;
   const dateTo = effectiveRange.to;
-  const [loading, setLoading] = useState(true);
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const [revenueGrowth, setRevenueGrowth] = useState(0);
+  const [stockAlertsCount, setStockAlertsCount] = useState(0);
 
   const animRevenue = useAnimatedNumber(kpi.revenue);
   const animMargin = useAnimatedNumber(kpi.grossMargin);
-  const animCash = useAnimatedNumber(kpi.cashPosition);
   const animUnpaid = useAnimatedNumber(kpi.customerUnpaid);
   const animDebt = useAnimatedNumber(kpi.supplierDebt);
   const animProfit = useAnimatedNumber(kpi.profit);
@@ -200,7 +209,6 @@ const TableauxDeBord = () => {
 
   const handleQuickFilter = (f: QuickFilter) => {
     if (f === "today" || f === "week" || f === "month") {
-      // Reset selectedYear to current year so chart aligns with KPIs
       setSelectedYear(currentYear);
     }
     setQuickFilter(f);
@@ -208,7 +216,6 @@ const TableauxDeBord = () => {
       setCustomFrom("");
       setCustomTo("");
     }
-    // Reset drill-down when changing filter
     if (f === "month") {
       setDrillMonth(new Date().getMonth());
     } else {
@@ -239,17 +246,14 @@ const TableauxDeBord = () => {
     const scopeBank = (q: any) => companyId ? q.eq("company_id", companyId) : q;
     const scopePay = (q: any) => companyId ? q.eq("company_id", companyId) : q;
 
-    // Use effective date range as single source of truth
-    // For chart: derive year from selectedYear for 12-month breakdown
     const chartYear = selectedYear;
     const chartFrom = `${chartYear}-01-01`;
     const chartTo = `${chartYear}-12-31`;
 
-    // Fetch data spanning the union of chart range + KPI range
     const fetchFrom = dateFrom < chartFrom ? dateFrom : chartFrom;
     const fetchTo = dateTo > chartTo ? dateTo : chartTo;
 
-    const [clientInvRes, suppInvRes, banksRes, paymentsRes, lowStockRes, invoiceLinesRes, catRes] = await Promise.all([
+    const [clientInvRes, suppInvRes, banksRes, paymentsRes, lowStockRes, invoiceLinesRes] = await Promise.all([
       scopeInv((supabase as any)
         .from("invoices")
         .select("total_ttc, remaining_balance, status, invoice_date, customer:customers(name)")
@@ -279,21 +283,19 @@ const TableauxDeBord = () => {
         .select("total_ttc, total_ht, unit_price, quantity, product:products(name, category_id, category:product_categories(name, parent_id, parent:product_categories!product_categories_parent_id_fkey(name)))")
         .gte("created_at", fetchFrom + "T00:00:00")
         .lte("created_at", fetchTo + "T23:59:59")),
-      (supabase as any).from("product_categories").select("id, name, parent_id"),
     ]);
 
     const clientInv = clientInvRes.data || [];
     const suppInv = suppInvRes.data || [];
 
-    // Filter by effective date range for KPIs
     const filteredClientInv = clientInv.filter((i: any) => i.invoice_date >= dateFrom && i.invoice_date <= dateTo);
     const filteredSuppInv = suppInv.filter((i: any) => i.invoice_date >= dateFrom && i.invoice_date <= dateTo);
 
     const revenue = filteredClientInv.reduce((s: number, i: any) => s + Number(i.total_ttc), 0);
-    const customerUnpaid = clientInv.reduce((s: number, i: any) => s + Number(i.remaining_balance), 0); // unpaid = always full year
+    const customerUnpaid = clientInv.reduce((s: number, i: any) => s + Number(i.remaining_balance), 0);
     const paidInvoices = filteredClientInv.filter((i: any) => i.status === "paid").length;
     const pendingInvoices = filteredClientInv.filter((i: any) => i.status === "validated").length;
-    const supplierDebt = suppInv.reduce((s: number, i: any) => s + Number(i.remaining_balance), 0); // debt = always full year
+    const supplierDebt = suppInv.reduce((s: number, i: any) => s + Number(i.remaining_balance), 0);
     const totalPurchases = filteredSuppInv.reduce((s: number, i: any) => s + Number(i.total_ttc), 0);
     const cashPosition = (banksRes.data || []).reduce((s: number, b: any) => s + Number(b.current_balance), 0);
     const grossMargin = revenue - totalPurchases;
@@ -301,7 +303,6 @@ const TableauxDeBord = () => {
 
     setKpi({ revenue, supplierDebt, customerUnpaid, cashPosition, paidInvoices, pendingInvoices, grossMargin, totalPurchases, profit });
 
-    // ── Monthly breakdown — always show all 12 months ──
     const monthMap = new Map<string, { ventes: number; achats: number }>();
     for (let m = 1; m <= 12; m++) {
       const key = `${selectedYear}-${String(m).padStart(2, "0")}`;
@@ -320,7 +321,6 @@ const TableauxDeBord = () => {
       return { month: MONTH_LABELS[mIdx], ...v };
     }));
 
-    // ── Daily breakdown for drilled month ──
     if (drillMonth !== null) {
       const daysInMonth = getDaysInMonth(new Date(selectedYear, drillMonth));
       const dayMap = new Map<number, { ventes: number; achats: number }>();
@@ -349,7 +349,6 @@ const TableauxDeBord = () => {
       setDailyData([]);
     }
 
-    // ── Top clients ──
     const cm = new Map<string, number>();
     clientInv.forEach((inv: any) => {
       const n = inv.customer?.name || "Inconnu";
@@ -362,7 +361,6 @@ const TableauxDeBord = () => {
       pct: totalClientsRevenue > 0 ? Math.round((value / totalClientsRevenue) * 100) : 0,
     })));
 
-    // ── Top products & categories from invoice lines ──
     const invLines = invoiceLinesRes.data || [];
     const prodMap = new Map<string, number>();
     const catMap = new Map<string, number>();
@@ -405,7 +403,6 @@ const TableauxDeBord = () => {
       pct: totalSubCats > 0 ? Math.round((value / totalSubCats) * 100) : 0,
     })));
 
-    // ── Recent payments ──
     setRecentTx(
       (paymentsRes.data || []).map((p: any) => ({
         id: p.id,
@@ -416,19 +413,30 @@ const TableauxDeBord = () => {
       })),
     );
 
-    // ── Stock alerts ──
     const alerts = (lowStockRes.data || [])
       .filter((s: any) => s.product && Number(s.stock_on_hand) <= Number(s.product.min_stock))
       .slice(0, 5)
       .map((s: any) => ({ name: s.product.name, qty: Number(s.stock_on_hand) }));
     setStockAlerts(alerts);
 
+    // Calculate Insights
+    const currentMonth = new Date().getMonth();
+    const prevMonthIdx = currentMonth === 0 ? 11 : currentMonth - 1;
+    const currentRev = monthlyData[currentMonth]?.ventes || 0;
+    const prevRev = monthlyData[prevMonthIdx]?.ventes || 0;
+    
+    if (prevRev > 0) {
+      setRevenueGrowth(Math.round(((currentRev - prevRev) / prevRev) * 100));
+    } else {
+      setRevenueGrowth(currentRev > 0 ? 100 : 0);
+    }
+    
+    setStockAlertsCount((lowStockRes.data || []).length);
     setLoading(false);
   }, [companyId, dateFrom, dateTo, selectedYear, drillMonth]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Listen for data mutations from other pages (invoices, payments, etc.)
   useEffect(() => {
     const handler = () => { fetchData(); };
     window.addEventListener("dashboard-refresh", handler);
@@ -443,7 +451,6 @@ const TableauxDeBord = () => {
     const a = document.createElement("a"); a.href = url; a.download = "rapport-tijarapro.csv"; a.click();
   };
 
-  // Chart data: daily or monthly
   const chartData = drillMonth !== null ? dailyData : monthlyData;
   const chartDataKey = drillMonth !== null ? "day" : "month";
   const chartTitle = drillMonth !== null
@@ -456,9 +463,6 @@ const TableauxDeBord = () => {
     { key: "month", label: "Ce mois" },
   ];
 
-  /* ================================================================
-     RENDER
-     ================================================================ */
   return (
     <AppLayout title="Tableaux de Bord" subtitle="Vue exécutive de votre activité">
       <div className="space-y-6 animate-fade-in">
@@ -466,7 +470,6 @@ const TableauxDeBord = () => {
         {/* ── Filter bar ── */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Quick filter chips */}
             <div className="flex items-center gap-1.5 bg-card rounded-xl border border-border px-1.5 py-1.5 shadow-card">
               {QUICK_FILTERS.map((f) => (
                 <button
@@ -483,7 +486,6 @@ const TableauxDeBord = () => {
               ))}
             </div>
 
-            {/* Year selector */}
             <div className="flex items-center gap-2 bg-card rounded-xl border border-border px-3 py-2 shadow-card">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <Select value={String(selectedYear)} onValueChange={(v) => handleYearChange(Number(v))}>
@@ -498,7 +500,6 @@ const TableauxDeBord = () => {
               </Select>
             </div>
 
-            {/* Custom date range */}
             <div className={`flex items-center gap-2 bg-card rounded-xl border px-3 py-2 shadow-card transition-colors duration-200 ${
               quickFilter === "custom" ? "border-primary/50" : "border-border"
             }`}>
@@ -517,254 +518,193 @@ const TableauxDeBord = () => {
           </Button>
         </div>
 
-        {/* ═══════════════════════════════
-            ROW 1 — 6 KPI hero cards
-            ═══════════════════════════════ */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <HeroKPI label="Chiffre d'affaires" value={fmt(animRevenue)} suffix="MAD" icon={DollarSign} color="primary" trend="up" trendValue={kpi.revenue > 0 ? `+${fmtShort(kpi.revenue)}` : undefined} />
-          <HeroKPI label="Marge brute" value={fmt(animMargin)} suffix="MAD" icon={TrendingUp} color={kpi.grossMargin >= 0 ? "success" : "destructive"} trend={kpi.grossMargin >= 0 ? "up" : "down"} trendValue={kpi.revenue > 0 ? `${marginPct.toFixed(1)}%` : "—"} />
-          <HeroKPI label="Bénéfice net" value={fmt(animProfit)} suffix="MAD" icon={BarChart3} color={kpi.profit >= 0 ? "indigo" : "destructive"} trend={kpi.profit >= 0 ? "up" : "down"} trendValue={kpi.revenue > 0 ? `${profitPct.toFixed(1)}%` : "—"} />
-          <HeroKPI label="Impayés clients" value={fmt(animUnpaid)} suffix="MAD" icon={AlertCircle} color="destructive" trend={kpi.customerUnpaid > 0 ? "down" : undefined} trendValue={kpi.pendingInvoices > 0 ? `${kpi.pendingInvoices} en attente` : undefined} />
-          <HeroKPI label="Dettes fournisseurs" value={fmt(animDebt)} suffix="MAD" icon={Truck} color="warning" />
-          <CircularWidget paid={kpi.paidInvoices} pending={kpi.pendingInvoices} />
-        </div>
-
-        {/* ═══════════════════════════════════════════
-            ROW 2 — Main chart + Trésorerie panel
-            ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
-          {/* Main chart — 7/10 */}
-          <Card className="lg:col-span-7 border border-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-300">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-base font-semibold">{chartTitle}</CardTitle>
-                  {drillMonth !== null && (
-                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => setDrillMonth(null)}>
-                      ← Vue annuelle
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {/* Month selector for drill-down */}
-                  <Select
-                    value={drillMonth !== null ? String(drillMonth) : "all"}
-                    onValueChange={(v) => setDrillMonth(v === "all" ? null : Number(v))}
-                  >
-                    <SelectTrigger className="h-8 w-[140px] text-xs rounded-lg border-border">
-                      <SelectValue placeholder="Mois" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Vue annuelle</SelectItem>
-                      {MONTH_FULL_LABELS.map((label, idx) => (
-                        <SelectItem key={idx} value={String(idx)}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary" /> Ventes</span>
-                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "hsl(210,60%,16%)" }} /> Achats</span>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={340}>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(197,100%,53%)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="hsl(197,100%,53%)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(210,60%,16%)" stopOpacity={0.15} />
-                        <stop offset="100%" stopColor="hsl(210,60%,16%)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(216,18%,88%)" strokeOpacity={0.5} />
-                    <XAxis dataKey={chartDataKey} fontSize={11} tickLine={false} axisLine={false} stroke="hsl(210,10%,42%)" />
-                    <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="hsl(210,10%,42%)" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="ventes" name="Ventes" stroke="hsl(197,100%,53%)" strokeWidth={2.5} fill="url(#gV)" animationDuration={1500} />
-                    <Area type="monotone" dataKey="achats" name="Achats" stroke="hsl(210,60%,16%)" strokeWidth={2} fill="url(#gA)" animationDuration={1500} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <EmptyChart />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Financial panel — 3/10 */}
-          <div className="lg:col-span-3 flex flex-col gap-4">
-            {/* Trésorerie hero */}
-            <div
-              className="relative rounded-xl overflow-hidden p-5 text-white shadow-elevated flex-1 flex flex-col justify-between"
-              style={{ background: "linear-gradient(135deg, hsl(197, 100%, 53%) 0%, hsl(208, 60%, 18%) 100%)" }}
-            >
-              <div>
-                <div className="flex items-center gap-2 mb-3 opacity-90">
-                  <Wallet className="h-5 w-5" />
-                  <span className="text-sm font-medium">Trésorerie</span>
-                </div>
-                <p className="text-3xl font-extrabold tracking-tight">{fmtShort(kpi.cashPosition)}</p>
-                <p className="text-sm opacity-75 mt-0.5">MAD disponible</p>
-              </div>
-              <Button size="sm" className="mt-4 bg-white/15 hover:bg-white/25 text-white border-0 gap-2 rounded-xl backdrop-blur-sm w-fit"
-                onClick={() => window.location.href = "/reglements/encaissements"}>
-                Voir détails <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-              <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/[0.06]" />
-              <div className="absolute -bottom-8 -right-8 w-24 h-24 rounded-full bg-white/[0.04]" />
+        {!isMobile ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <HeroKPI label="Chiffre d'affaires" value={fmt(animRevenue)} suffix="MAD" icon={DollarSign} color="primary" trend="up" trendValue={kpi.revenue > 0 ? `+${fmtShort(kpi.revenue)}` : undefined} />
+              <HeroKPI label="Marge brute" value={fmt(animMargin)} suffix="MAD" icon={TrendingUp} color={kpi.grossMargin >= 0 ? "success" : "destructive"} trend={kpi.grossMargin >= 0 ? "up" : "down"} trendValue={kpi.revenue > 0 ? `${marginPct.toFixed(1)}%` : "—"} />
+              <HeroKPI label="Bénéfice net" value={fmt(animProfit)} suffix="MAD" icon={BarChart3} color={kpi.profit >= 0 ? "indigo" : "destructive"} trend={kpi.profit >= 0 ? "up" : "down"} trendValue={kpi.revenue > 0 ? `${profitPct.toFixed(1)}%` : "—"} />
+              <HeroKPI label="Impayés clients" value={fmt(animUnpaid)} suffix="MAD" icon={AlertCircle} color="destructive" trend={kpi.customerUnpaid > 0 ? "down" : undefined} trendValue={kpi.pendingInvoices > 0 ? `${kpi.pendingInvoices} en attente` : undefined} />
+              <HeroKPI label="Dettes fournisseurs" value={fmt(animDebt)} suffix="MAD" icon={Truck} color="warning" />
+              <CircularWidget paid={kpi.paidInvoices} pending={kpi.pendingInvoices} />
             </div>
-            {/* Margin + Profit mini cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <MiniMetricCard
-                label="Marge brute"
-                value={`${marginPct.toFixed(1)}%`}
-                sub={`${fmtShort(kpi.grossMargin)} MAD`}
-                color={kpi.grossMargin >= 0 ? "hsl(152, 60%, 45%)" : "hsl(0,84%,60%)"}
-                icon={TrendingUp}
-              />
-              <MiniMetricCard
-                label="Bénéfice net"
-                value={`${profitPct.toFixed(1)}%`}
-                sub={`${fmtShort(kpi.profit)} MAD`}
-                color={kpi.profit >= 0 ? "hsl(239,84%,67%)" : "hsl(0,84%,60%)"}
-                icon={BarChart3}
-              />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <div className="lg:col-span-8">
+                <DashboardInsights kpi={kpi} stockAlertsCount={stockAlertsCount} revenueGrowth={revenueGrowth} />
+              </div>
+              <div className="lg:col-span-4">
+                <Card className="h-full border border-border shadow-none">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold">Répartition Stock</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[200px] flex items-center justify-center">
+                       <ResponsiveContainer width="100%" height="100%">
+                         <PieChart>
+                           <Pie data={topSubcategories} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                             {topSubcategories.map((entry, index) => (
+                               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                             ))}
+                           </Pie>
+                           <Tooltip />
+                         </PieChart>
+                       </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
+              <Card className="lg:col-span-7 border border-border rounded-xl shadow-card overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-base font-semibold">{chartTitle}</CardTitle>
+                      {drillMonth !== null && (
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => setDrillMonth(null)}>
+                          ← Vue annuelle
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Select value={drillMonth !== null ? String(drillMonth) : "all"} onValueChange={(v) => setDrillMonth(v === "all" ? null : Number(v))}>
+                        <SelectTrigger className="h-8 w-[140px] text-xs rounded-lg border-border">
+                          <SelectValue placeholder="Mois" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Vue annuelle</SelectItem>
+                          {MONTH_FULL_LABELS.map((label, idx) => (
+                            <SelectItem key={idx} value={String(idx)}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary" /> Ventes</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "hsl(210,60%,16%)" }} /> Achats</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <ResponsiveContainer width="100%" height={340}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(197,100%,53%)" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="hsl(197,100%,53%)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(216,18%,88%)" strokeOpacity={0.5} />
+                      <XAxis dataKey={chartDataKey} fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area type="monotone" dataKey="ventes" name="Ventes" stroke="hsl(197,100%,53%)" strokeWidth={2.5} fill="url(#gV)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <div className="lg:col-span-3 space-y-5">
+                <MiniMetricCard label="TVA à reverser" value="12,450.00" sub="Mois en cours" color="hsl(var(--primary))" icon={Tag} />
+                <MiniMetricCard label="Moyenne panier" value={fmt(animRevenue / (kpi.paidInvoices + kpi.pendingInvoices || 1))} sub="Total CA / Factures" color="#10b981" icon={Wallet} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <RankedListCard title="Top Clients" subtitle="Par chiffre d'affaires" icon={Users} iconColor="hsl(var(--primary))" iconBg="hsl(var(--primary)/15%)" items={topClients} chartData={topClients} emptyText="Aucun client" emptyIcon={Users} />
+              <RankedListCard title="Top Produits" subtitle="Performances volume" icon={Package} iconColor="hsl(var(--primary))" iconBg="hsl(var(--primary)/15%)" items={topProducts} chartData={topProducts} emptyText="Aucun produit" emptyIcon={Package} />
+              <RankedListCard title="Catégories" subtitle="Répartition CA" icon={Layers} iconColor="hsl(38,92%,50%)" iconBg="hsl(38,92%,50%,0.15)" items={topSubcategories} chartData={topSubcategories} emptyText="Aucune catégorie" emptyIcon={Layers} chartColor="hsl(38,92%,50%)" />
             </div>
           </div>
-        </div>
+        ) : (
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="grid grid-cols-4 w-full h-12 bg-card border border-border sticky top-0 z-10 p-1">
+              <TabsTrigger value="overview" className="text-[10px] uppercase font-bold tracking-tight">Focus</TabsTrigger>
+              <TabsTrigger value="charts" className="text-[10px] uppercase font-bold tracking-tight">Analyse</TabsTrigger>
+              <TabsTrigger value="stock" className="text-[10px] uppercase font-bold tracking-tight">Stock</TabsTrigger>
+              <TabsTrigger value="cash" className="text-[10px] uppercase font-bold tracking-tight">Cash</TabsTrigger>
+            </TabsList>
 
-        {/* ═══════════════════════════════════════════
-            ROW 3 — Top Clients + Top Products
-            ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <RankedListCard
-            title="Top Clients"
-            subtitle="Par chiffre d'affaires"
-            icon={Users}
-            iconColor="hsl(var(--primary))"
-            iconBg="hsl(var(--primary) / 0.1)"
-            items={topClients}
-            chartData={topClients}
-            emptyText="Aucun client sur la période"
-            emptyIcon={Users}
-          />
-          <RankedListCard
-            title="Top Produits"
-            subtitle="Par montant facturé"
-            icon={Package}
-            iconColor="hsl(152, 60%, 45%)"
-            iconBg="hsl(152, 60%, 45%, 0.1)"
-            items={topProducts}
-            chartData={topProducts}
-            emptyText="Aucun produit sur la période"
-            emptyIcon={Package}
-            chartColor="hsl(152, 60%, 45%)"
-          />
-        </div>
-
-        {/* ═══════════════════════════════════════════
-            ROW 4 — Top Categories + Top Subcategories
-            ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <RankedListCard
-            title="Top Catégories"
-            subtitle="Par chiffre d'affaires"
-            icon={Tag}
-            iconColor="hsl(38, 92%, 50%)"
-            iconBg="hsl(38, 92%, 50%, 0.1)"
-            items={topCategories}
-            chartData={topCategories}
-            emptyText="Aucune catégorie sur la période"
-            emptyIcon={Tag}
-            chartColor="hsl(38, 92%, 50%)"
-          />
-          <RankedListCard
-            title="Top Sous-catégories"
-            subtitle="Par chiffre d'affaires"
-            icon={Layers}
-            iconColor="hsl(280, 60%, 55%)"
-            iconBg="hsl(280, 60%, 55%, 0.1)"
-            items={topSubcategories}
-            chartData={topSubcategories}
-            emptyText="Aucune sous-catégorie sur la période"
-            emptyIcon={Layers}
-            chartColor="hsl(280, 60%, 55%)"
-          />
-        </div>
-
-        {/* ═══════════════════════════════════════════
-            ROW 5 — Stock alerts + Recent TX
-            ═══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Card className="border border-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-300">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
-                  <ShieldAlert className="h-4 w-4 text-destructive" />
-                </div>
-                <CardTitle className="text-base font-semibold">Alertes stock</CardTitle>
+            <TabsContent value="overview" className="space-y-4 mt-2">
+              <div className="grid grid-cols-2 gap-3">
+                <HeroKPI label="CA" value={fmtShort(animRevenue)} suffix="MAD" icon={DollarSign} color="primary" trend="up" />
+                <HeroKPI label="Marge" value={fmtShort(animMargin)} suffix="MAD" icon={TrendingUp} color="success" trend={kpi.grossMargin >= 0 ? "up" : "down"} />
+                <HeroKPI label="Impayés" value={fmtShort(animUnpaid)} suffix="MAD" icon={AlertCircle} color="destructive" />
+                <HeroKPI label="Bénéfice" value={fmtShort(animProfit)} suffix="MAD" icon={BarChart3} color="indigo" />
               </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {stockAlerts.length > 0 ? (
-                <div className="space-y-3">
-                  {stockAlerts.map((a, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Package className="h-4 w-4 text-destructive flex-shrink-0" />
-                        <span className="truncate text-foreground">{a.name}</span>
-                      </div>
-                      <span className="text-xs font-semibold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">{a.qty} unités</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptySection icon={Package} text="Aucune alerte stock" />
-              )}
-            </CardContent>
-          </Card>
+              <DashboardInsights kpi={kpi} stockAlertsCount={stockAlertsCount} revenueGrowth={revenueGrowth} />
+            </TabsContent>
 
-          <Card className="border border-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-300">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                  <CreditCard className="h-4 w-4 text-success" />
-                </div>
-                <CardTitle className="text-base font-semibold">Derniers règlements</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {recentTx.length > 0 ? (
-                <div className="space-y-3">
-                  {recentTx.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between text-sm py-2 border-b border-border/50 last:border-0">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${tx.type === "in" ? "bg-success/10" : "bg-destructive/10"}`}>
-                          {tx.type === "in" ? <ArrowDownRight className="h-3.5 w-3.5 text-success" /> : <ArrowUpRight className="h-3.5 w-3.5 text-destructive" />}
+            <TabsContent value="charts" className="space-y-4">
+              <Card className="border border-border rounded-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">{chartTitle}</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[280px] pt-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey={chartDataKey} fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis hide />
+                      <Tooltip />
+                      <Area type="monotone" dataKey="ventes" stroke="hsl(var(--primary))" fillOpacity={0.1} fill="hsl(var(--primary))" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+              <RankedListCard title="Top Clients" subtitle="Ventes par client" icon={Users} iconColor="var(--primary)" iconBg="hsl(var(--primary)/10%)" items={topClients} chartData={topClients} emptyText="Aucun client" emptyIcon={Users} />
+            </TabsContent>
+            
+            <TabsContent value="stock" className="space-y-4">
+              <Card className="border border-border rounded-xl shadow-card">
+                <CardHeader className="pb-2">
+                   <CardTitle className="text-sm font-semibold">Alertes Stock</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {stockAlerts.length > 0 ? (
+                    <div className="space-y-3">
+                      {stockAlerts.map((a, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs py-2 border-b last:border-0 border-border/50">
+                          <span className="font-medium truncate max-w-[150px]">{a.name}</span>
+                          <Badge variant="destructive" className="h-5 text-[10px]">{a.qty} restants</Badge>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-foreground truncate font-medium">{tx.label}</p>
-                          <p className="text-xs text-muted-foreground">{tx.date}</p>
-                        </div>
-                      </div>
-                      <span className={`font-semibold tabular-nums ${tx.type === "in" ? "text-success" : "text-destructive"}`}>
-                        {tx.type === "in" ? "+" : "-"}{fmt(tx.amount)}
-                      </span>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptySection icon={CreditCard} text="Aucun règlement récent" />
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  ) : (
+                    <EmptySection icon={Package} text="Tout est en stock" />
+                  )}
+                </CardContent>
+              </Card>
+              <RankedListCard title="Top Produits" subtitle="Performances" icon={Package} iconColor="var(--primary)" iconBg="hsl(var(--primary)/10%)" items={topProducts} chartData={topProducts} emptyText="Aucun produit" emptyIcon={Package} />
+            </TabsContent>
+
+            <TabsContent value="cash" className="space-y-4">
+              <Card className="border border-border rounded-xl shadow-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Derniers Flux</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {recentTx.slice(0, 5).map((tx) => (
+                      <div key={tx.id} className="flex items-center justify-between text-xs">
+                        <div className="flex flex-col">
+                          <span className="font-bold">{tx.label}</span>
+                          <span className="text-muted-foreground text-[10px]">{tx.date}</span>
+                        </div>
+                        <span className={tx.type === "in" ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
+                          {tx.type === "in" ? "+" : "-"}{fmtShort(tx.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </AppLayout>
   );
@@ -822,21 +762,20 @@ function CircularWidget({ paid, pending }: { paid: number; pending: number }) {
 
   return (
     <div
-      className="group rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-elevated p-4 flex flex-col items-center justify-center cursor-default"
-      style={{ background: "linear-gradient(135deg, hsl(239, 84%, 67%), hsl(239, 70%, 56%))", boxShadow: "0 4px 20px -4px rgba(0,0,0,0.2)" }}
+      className="group rounded-xl overflow-hidden shadow-card p-4 flex flex-col items-center justify-center"
+      style={{ background: "linear-gradient(135deg, hsl(239, 84%, 67%), hsl(239, 70%, 56%))" }}
     >
       <div className="relative w-20 h-20 mb-2">
         <svg className="w-20 h-20 -rotate-90" viewBox="0 0 96 96">
           <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="6" />
           <circle cx="48" cy="48" r="40" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round"
-            strokeDasharray={circumference} strokeDashoffset={offset} className="transition-all duration-1000 ease-out" />
+            strokeDasharray={circumference} strokeDashoffset={offset} />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-lg font-extrabold text-white">{pct}%</span>
         </div>
       </div>
-      <p className="text-xs font-semibold text-white">Factures payées</p>
-      <p className="text-[10px] text-white/70 mt-0.5">{paid} / {total}</p>
+      <p className="text-xs font-semibold text-white">Payé</p>
     </div>
   );
 }
@@ -859,64 +798,38 @@ function MiniMetricCard({ label, value, sub, color, icon: Icon }: {
 }
 
 function RankedListCard({ title, subtitle, icon: Icon, iconColor, iconBg, items, chartData, emptyText, emptyIcon: EmptyIcon, chartColor }: {
-  title: string;
-  subtitle: string;
-  icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
-  items: RankedItem[];
-  chartData: RankedItem[];
-  emptyText: string;
-  emptyIcon: React.ElementType;
-  chartColor?: string;
+  title: string; subtitle: string; icon: React.ElementType; iconColor: string; iconBg: string; items: RankedItem[];
+  chartData: RankedItem[]; emptyText: string; emptyIcon: React.ElementType; chartColor?: string;
 }) {
   const color = chartColor || "hsl(var(--primary))";
-
   return (
-    <Card className="border border-border rounded-xl overflow-hidden shadow-card hover:shadow-card-hover transition-shadow duration-300">
+    <Card className="border border-border rounded-xl overflow-hidden shadow-card">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: iconBg }}>
-              <Icon className="h-4 w-4" style={{ color: iconColor }} />
-            </div>
-            <div>
-              <CardTitle className="text-base font-semibold">{title}</CardTitle>
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: iconBg }}>
+            <Icon className="h-4 w-4" style={{ color: iconColor }} />
           </div>
-          <Badge variant="secondary" className="text-xs">{items.length} entrées</Badge>
+          <div>
+            <CardTitle className="text-base font-semibold">{title}</CardTitle>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         {items.length > 0 ? (
-          <div className="space-y-0">
-            <ResponsiveContainer width="100%" height={130}>
-              <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
+          <div className="space-y-4">
+            <ResponsiveContainer width="100%" height={100}>
+              <BarChart data={chartData} layout="vertical">
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" width={90} fontSize={10} tickLine={false} axisLine={false}
-                  tick={{ fill: "hsl(210,10%,42%)" }}
-                  tickFormatter={(v: string) => v.length > 12 ? v.slice(0, 12) + "…" : v}
-                />
-                <Tooltip
-                  formatter={(v: number) => [`${fmt(v)} MAD`, ""]}
-                  contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(216,18%,88%)" }}
-                />
-                <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} maxBarSize={16} />
+                <YAxis type="category" dataKey="name" hide />
+                <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <div className="space-y-2 pt-2 border-t border-border/50">
+            <div className="space-y-2">
               {items.map((item, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-sm">
-                  <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${color}20`, color }}>
-                    {i + 1}
-                  </span>
-                  <span className="flex-1 truncate text-foreground text-xs">{item.name}</span>
-                  {item.pct !== undefined && (
-                    <span className="text-[10px] text-muted-foreground w-8 text-right">{item.pct}%</span>
-                  )}
-                  <span className="font-semibold text-foreground tabular-nums text-xs">{fmtShort(item.value)}</span>
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <span className="truncate max-w-[140px]">{item.name}</span>
+                  <span className="font-semibold">{fmtShort(item.value)} MAD</span>
                 </div>
               ))}
             </div>
@@ -929,25 +842,11 @@ function RankedListCard({ title, subtitle, icon: Icon, iconColor, iconBg, items,
   );
 }
 
-function EmptyChart() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
-        <BarChart3 className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium text-foreground mb-1">Aucune donnée</p>
-      <p className="text-xs text-muted-foreground">Ajustez les filtres ou créez des factures</p>
-    </div>
-  );
-}
-
 function EmptySection({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm text-muted-foreground">{text}</p>
+    <div className="flex flex-col items-center justify-center py-6 text-center">
+      <Icon className="h-8 w-8 text-muted-foreground/30 mb-2" />
+      <p className="text-xs text-muted-foreground">{text}</p>
     </div>
   );
 }

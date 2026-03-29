@@ -31,7 +31,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 
 // Module access mapping
 export const ROLE_MODULE_ACCESS: Record<string, AppRole[]> = {
-  "/": ["super_admin", "admin", "accountant", "sales", "stock_manager"],
+  "/home": ["super_admin", "admin", "accountant", "sales", "stock_manager"],
   "/tableaux-de-bord": ["super_admin", "admin"],
   "/referentiel": ["super_admin", "admin", "accountant", "sales", "stock_manager"],
   "/achats": ["super_admin", "admin", "accountant", "purchase"],
@@ -40,9 +40,11 @@ export const ROLE_MODULE_ACCESS: Record<string, AppRole[]> = {
   "/achats/receptions": ["super_admin", "admin", "accountant", "stock_manager", "purchase"],
   "/stock": ["super_admin", "admin", "stock_manager"],
   "/stock/niveaux": ["super_admin", "admin", "stock_manager"],
+  "/stock/receptions": ["super_admin", "admin", "accountant", "stock_manager", "purchase"],
   "/stock/mouvements": ["super_admin", "admin", "stock_manager"],
   "/stock/transferts": ["super_admin", "admin", "stock_manager"],
   "/stock/inventaires": ["super_admin", "admin", "stock_manager"],
+  "/stock/livraisons": ["super_admin", "admin", "sales", "stock_manager"],
   "/ventes": ["super_admin", "admin", "sales"],
   "/ventes/devis": ["super_admin", "admin", "sales"],
   "/ventes/commandes": ["super_admin", "admin", "sales"],
@@ -57,6 +59,7 @@ export const ROLE_MODULE_ACCESS: Record<string, AppRole[]> = {
   "/reglements/decaissements": ["super_admin", "admin", "accountant"],
   "/reglements/rapprochement": ["super_admin", "admin", "accountant"],
   "/reglements/impayes": ["super_admin", "admin", "accountant"],
+  "/achats/depenses": ["super_admin", "admin", "accountant"],
   "/depenses": ["super_admin", "admin", "accountant"],
   "/config": ["super_admin", "admin"],
   "/config/categories": ["super_admin", "admin"],
@@ -95,5 +98,5 @@ export function getFirstAccessibleRoute(roles: AppRole[]): string {
       return route;
     }
   }
-  return "/";
+  return "/home";
 }

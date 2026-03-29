@@ -1,6 +1,7 @@
 import { pdf } from "@react-pdf/renderer";
 import React from "react";
 import { TijaraProPDF } from "./TijaraProPDF";
+import { BillingJournalPDF } from "./BillingJournalPDF";
 import type { PdfDocumentData, PdfDocumentType, PdfCompany, PdfBankAccount, PdfParty, PdfLine } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { openPrintHtml } from "./print-html";
@@ -468,4 +469,30 @@ export async function printCreditNotePdf(
 
   if (download) await generateAndDownloadPdf(data);
   else await generateAndOpenPdf(data);
+}
+
+export async function printJournalPdf(
+  invoices: any[],
+  type: "journal_ventes" | "journal_achats",
+  period: { from: string; to: string },
+  companyId?: string | null
+) {
+  const company = await fetchCompany(companyId);
+  if (!company) return;
+
+  const blob = await pdf(
+    <BillingJournalPDF 
+      type={type} 
+      company={company} 
+      period={period} 
+      items={invoices} 
+    />
+  ).toBlob();
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${type}_${period.from}_${period.to}.pdf`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }

@@ -163,7 +163,7 @@ const sections: SidebarSection[] = [
     adminOnly: true,
     moduleKey: "admin",
     subItems: [
-      { title: "Vue d'ensemble", icon: BarChart3, path: "/" },
+      { title: "Vue d'ensemble", icon: BarChart3, path: "/home" },
       { title: "Utilisateurs", icon: Users, path: "/systeme/utilisateurs" },
       { title: "Profils & Rôles", icon: ShieldCheck, path: "/systeme/profils" },
       { title: "Gestion des Sociétés", icon: Building2, path: "/systeme/societes" },
@@ -203,13 +203,13 @@ export function AppSidebar() {
   }, [location.pathname]);
 
   const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
+    if (path === "/home") return location.pathname === "/home";
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
   const isSectionActive = (section: SidebarSection) => {
     if (section.basePath === "/systeme") {
-      return location.pathname === "/" || location.pathname.startsWith("/systeme");
+      return location.pathname === "/home" || location.pathname.startsWith("/systeme");
     }
     return location.pathname.startsWith(section.basePath);
   };

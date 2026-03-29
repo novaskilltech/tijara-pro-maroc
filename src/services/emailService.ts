@@ -15,7 +15,8 @@ export const emailService = {
   async sendDocument(data: PdfDocumentData, recipientEmail: string) {
     try {
       // 1. Générer le PDF en tant que Blob
-      const blob = await pdf(<TijaraProPDF data={data} />).toBlob();
+      // Utilisation de React.createElement pour permettre au fichier d'être un .ts standard
+      const blob = await pdf(React.createElement(TijaraProPDF, { data })).toBlob();
       
       // 2. Convertir le Blob en Base64 pour l'envoi
       const reader = new FileReader();

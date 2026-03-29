@@ -6,79 +6,172 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { exportToCsv } from "@/lib/invoice-export";
-import { Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { printJournalPdf } from "@/lib/pdf";
+import { useCompany } from "@/hooks/useCompany";
+import { Download, FileSpreadsheet, Loader2, CalendarIcon, FileText } from "lucide-react";
+import { format, isWithinInterval, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 export function InvoiceExports() {
   const clientInvoices = useInvoices("client");
   const supplierInvoices = useInvoices("supplier");
   const [exportType, setExportType] = useState("client");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
+  const { activeCompany } = useCompany();
+
+  const allInvoices = exportType === "client" ? clientInvoices.invoices : supplierInvoices.invoices;
+  
+  const filteredInvoices = allInvoices.filter(inv => {
+    if (!dateRange.from || !dateRange.to) return true;
+    const invDate = parseISO(inv.invoice_date);
+    return isWithinInterval(invDate, { start: dateRange.from, end: dateRange.to });
+  });
 
   const handleExport = () => {
-    const invoices = exportType === "client" ? clientInvoices.invoices : supplierInvoices.invoices;
-    const filename = exportType === "client" ? "factures_clients" : "factures_fournisseurs";
-    exportToCsv(invoices, filename);
+    const filename = `${exportType === "client" ? "factures_clients" : "factures_fournisseurs"}_${format(new Date(), "yyyyMMdd")}`;
+    exportToCsv(filteredInvoices, filename);
+  };
+
+  const handlePdfJournal = async () => {
+    if (!dateRange.from || !dateRange.to) return;
+    const type = exportType === "client" ? "journal_ventes" : "journal_achats";
+    const period = {
+      from: format(dateRange.from, "yyyy-MM-dd"),
+      to: format(dateRange.to, "yyyy-MM-dd"),
+    };
+    await printJournalPdf(filteredInvoices, type, period, activeCompany?.id);
   };
 
   const loading = clientInvoices.loading || supplierInvoices.loading;
 
-  const clientStats = {
-    total: clientInvoices.invoices.length,
-    totalTtc: clientInvoices.invoices.reduce((s, i) => s + i.total_ttc, 0),
-    unpaid: clientInvoices.invoices.filter((i) => i.status === "validated").reduce((s, i) => s + i.remaining_balance, 0),
-  };
-
-  const supplierStats = {
-    total: supplierInvoices.invoices.length,
-    totalTtc: supplierInvoices.invoices.reduce((s, i) => s + i.total_ttc, 0),
-    unpaid: supplierInvoices.invoices.filter((i) => i.status === "validated").reduce((s, i) => s + i.remaining_balance, 0),
+  const stats = {
+    total: filteredInvoices.length,
+    totalTtc: filteredInvoices.reduce((s, i) => s + i.total_ttc, 0),
+    unpaid: filteredInvoices.filter((i) => i.status === "validated").reduce((s, i) => s + i.remaining_balance, 0),
   };
 
   return (
     <div className="space-y-6">
-      {/* Stats cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats cards for current filtered view */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Factures clients</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{clientStats.total}</p></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Nombre de factures</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.total}</p>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">CA TTC clients</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-primary">{clientStats.totalTtc.toFixed(2)} MAD</p></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Total TTC (Période)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">{stats.totalTtc.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD</p>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Factures fournisseurs</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{supplierStats.total}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Impayés clients</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-destructive">{clientStats.unpaid.toFixed(2)} MAD</p></CardContent>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Reste à recouvrer / payer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-destructive">{stats.unpaid.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} MAD</p>
+          </CardContent>
         </Card>
       </div>
 
-      {/* Export */}
+      {/* Control Panel */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <FileSpreadsheet className="h-4 w-4 text-primary" /> Exporter les factures
+            <FileSpreadsheet className="h-4 w-4 text-primary" /> Options d'exportation
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4">
+        <CardContent className="space-y-6">
+          <div className="flex flex-wrap items-end gap-6">
             <div className="space-y-2">
-              <Label>Type</Label>
+              <Label>Flux</Label>
               <Select value={exportType} onValueChange={setExportType}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="client">Factures clients</SelectItem>
-                  <SelectItem value="supplier">Factures fournisseurs</SelectItem>
+                  <SelectItem value="client">Ventes (Clients)</SelectItem>
+                  <SelectItem value="supplier">Achats (Fournisseurs)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleExport} disabled={loading} className="gap-1">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Exporter CSV
-            </Button>
+
+            <div className="space-y-2">
+              <Label>Période</Label>
+              <div className="grid gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="date"
+                      variant={"outline"}
+                      className={cn(
+                        "w-[260px] justify-start text-left font-normal",
+                        !dateRange && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y", { locale: fr })} -{" "}
+                            {format(dateRange.to, "LLL dd, y", { locale: fr })}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y", { locale: fr })
+                        )
+                      ) : (
+                        <span>Choisir une période</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={(range: any) => setDateRange(range)}
+                      numberOfMonths={2}
+                      locale={fr}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleExport} disabled={loading || filteredInvoices.length === 0} className="gap-2">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Exporter CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                className="gap-2" 
+                onClick={handlePdfJournal}
+                disabled={loading || filteredInvoices.length === 0}
+              >
+                <FileText className="h-4 w-4" />
+                Journal PDF
+              </Button>
+            </div>
           </div>
+          
+          {filteredInvoices.length === 0 && !loading && (
+            <div className="p-4 border border-dashed rounded-md text-center text-sm text-muted-foreground">
+              Aucune facture trouvée pour cette période.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

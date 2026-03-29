@@ -13,11 +13,11 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   isAdmin: () => boolean;
   refreshProfile: () => Promise<void>;
-  // MFA Scaffolding
-  mfaEnabled: boolean;
-  mfaVerified: boolean;
-  enrollMFA: () => Promise<{ qrCode?: string; secret?: string }>;
-  verifyMFA: (code: string) => Promise<boolean>;
+  mfaFactors: any[];
+  aal: 'aal1' | 'aal2' | null;
+  enrollMFA: () => Promise<{ id?: string; qrCode?: string; secret?: string; error?: any }>;
+  verifyMFA: (factorId: string, code: string, challengeId?: string) => Promise<{ success: boolean; error?: any }>;
+  unenrollMFA: (factorId: string) => Promise<{ success: boolean; error?: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,8 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mfaEnabled, setMfaEnabled] = useState(false);
-  const [mfaVerified, setMfaVerified] = useState(false);
+  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [aal, setAal] = useState<'aal1' | 'aal2' | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -57,9 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchMfaStatus = async () => {
+    const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (!aalError && aalData) {
+      setAal(aalData.currentLevel as 'aal1' | 'aal2');
+      
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (!factorsError && factorsData) {
+        setMfaFactors(factorsData.all);
+      } else {
+        setMfaFactors([]);
+      }
+    } else {
+      setAal(null);
+      setMfaFactors([]);
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
-      await Promise.all([fetchProfile(user.id), fetchRoles(user.id)]);
+      await Promise.all([fetchProfile(user.id), fetchRoles(user.id), fetchMfaStatus()]);
     }
   };
 
@@ -73,9 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (newSession?.user) {
           fetchProfile(newSession.user.id);
           fetchRoles(newSession.user.id);
+          fetchMfaStatus();
         } else {
           setProfile(null);
           setRoles([]);
+          setAal(null);
+          setMfaFactors([]);
         }
 
         if (event === "INITIAL_SESSION") {
@@ -91,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(existingSession.user);
         fetchProfile(existingSession.user.id);
         fetchRoles(existingSession.user.id);
+        fetchMfaStatus();
       }
       setLoading(false);
     });
@@ -109,25 +130,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = () => roles.includes("super_admin") || roles.includes("admin");
 
-  // MFA Stubs (Implementation for Lot 3/SEC)
   const enrollMFA = async () => {
-    console.log("MFA Enrollment started (Stub)");
-    return { qrCode: "dummy_qr", secret: "dummy_secret" };
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        issuer: 'Tijara Pro Maroc'
+      });
+      if (error) throw error;
+      return { 
+        id: data.id, 
+        qrCode: data.totp.qr_code, 
+        secret: data.totp.secret 
+      };
+    } catch (error: any) {
+      console.error("MFA Enrollment error:", error);
+      return { error };
+    }
   };
 
-  const verifyMFA = async (code: string) => {
-    console.log("Verifying MFA code:", code);
-    if (code === "000000") {
-      setMfaVerified(true);
-      return true;
+  const verifyMFA = async (factorId: string, code: string, challengeId?: string) => {
+    try {
+      let currentChallengeId = challengeId;
+      if (!currentChallengeId) {
+        const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+        if (challengeError) throw challengeError;
+        currentChallengeId = challengeData.id;
+      }
+
+      const { data: verificationData, error: verificationError } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: currentChallengeId,
+        code
+      });
+      if (verificationError) throw verificationError;
+      
+      await fetchMfaStatus();
+      return { success: true };
+    } catch (error: any) {
+      console.error("MFA Verification error:", error);
+      return { success: false, error };
     }
-    return false;
+  };
+
+  const unenrollMFA = async (factorId: string) => {
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId });
+      if (error) throw error;
+      await fetchMfaStatus();
+      return { success: true };
+    } catch (error: any) {
+      console.error("MFA Unenrollment error:", error);
+      return { success: false, error };
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, session, profile, roles, loading, signOut, hasRole, isAdmin, refreshProfile,
-      mfaEnabled, mfaVerified, enrollMFA, verifyMFA 
+      mfaFactors, aal, enrollMFA, verifyMFA, unenrollMFA 
     }}>
       {children}
     </AuthContext.Provider>
