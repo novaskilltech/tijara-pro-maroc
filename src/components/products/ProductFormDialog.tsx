@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
 import { GeneralTab } from "./tabs/GeneralTab";
 import { VariantsTab } from "./tabs/VariantsTab";
@@ -65,10 +65,39 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
   const handleSave = async () => {
     if (!form.name || !form.code) return;
     setSaving(true);
-    const result = await onSave(form);
-    setSaving(false);
-    if (result) {
-      onOpenChange(false);
+    try {
+      const result = await onSave(form);
+      if (result) {
+        onOpenChange(false);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!form.name || !form.code) return;
+    setSaving(true);
+    try {
+      const duplicate: Partial<Product> = {
+        ...form,
+        id: undefined,
+        code: `${form.code || ""}-COPIE`,
+        name: `${form.name || ""} (copie)`,
+        min_stock: 0,
+      };
+      // Clean up metadata
+      delete (duplicate as any).id;
+      delete (duplicate as any).created_at;
+      delete (duplicate as any).updated_at;
+      delete (duplicate as any).product_categories;
+      
+      const result = await onSave(duplicate);
+      if (result) {
+        onOpenChange(false);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -142,16 +171,31 @@ export function ProductFormDialog({ open, onOpenChange, product, onSave }: Produ
           </div>
         </Tabs>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/30">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {canSave ? "Annuler" : "Fermer"}
-          </Button>
-          {canSave && (
-            <Button onClick={handleSave} disabled={saving || !form.name || !form.code}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {isEditing ? "Enregistrer" : "Créer"}
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-muted/30">
+          <div>
+            {isEditing && canSave && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handleDuplicate}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                Dupliquer
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {canSave ? "Annuler" : "Fermer"}
             </Button>
-          )}
+            {canSave && (
+              <Button onClick={handleSave} disabled={saving || !form.name || !form.code}>
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {isEditing ? "Enregistrer" : "Créer"}
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

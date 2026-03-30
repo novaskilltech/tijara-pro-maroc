@@ -5,20 +5,24 @@ import { useCrud } from "@/hooks/useCrud";
 import { useCompany } from "@/hooks/useCompany";
 import { MasterDataPage, FieldConfig } from "@/components/MasterDataPage";
 import { SupplierKanban } from "@/components/master/SupplierKanban";
+import { SupplierImport } from "@/components/master/SupplierImport";
 import { TierDetailDialog } from "@/components/master/TierDetailDialog";
 import { ViewToggle } from "@/components/ViewToggle";
 import { AdvancedSearch, applyAdvancedSearch, type SearchOperator, type SearchableField, type FilterOption, type QuickFilter } from "@/components/AdvancedSearch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Truck, AlertCircle, AlertTriangle, Plus } from "lucide-react";
+import { Truck, AlertCircle, AlertTriangle, Plus, Copy, Download, Upload } from "lucid-react";
+import { toast } from "sonner";
+import { excelExport } from "@/lib/excel-export";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface Supplier {
   id: string; code: string; name: string; contact_name: string; email: string;
   phone: string; phone2: string; city: string; ice: string; rc: string;
   if_number: string; patente: string; address: string; payment_terms: string;
-  credit_limit: number; is_active: boolean; bank_name: string; rib: string;
+  credit_limit: number; is_active: boolean; bank_id: string | null; bank_name: string; rib: string;
   account_number: string; iban: string; swift: string; fax: string; notes: string;
+  entity_type: "physique" | "morale";
 }
 
 interface SupplierStats {
@@ -59,7 +63,7 @@ export default function SuppliersPage() {
   const { activeCompany } = useCompany();
   const { can } = usePermissions();
   const companyId = activeCompany?.id ?? null;
-  const { data, loading, create, update, remove } = useCrud<Supplier>({ table: "suppliers", orderBy: "code", ascending: true, companyScoped: true });
+  const { data, loading, fetch, create, update, remove } = useCrud<Supplier>({ table: "suppliers", orderBy: "code", ascending: true, companyScoped: true });
 
   const [stats, setStats] = useState<SupplierStats>({});
   const [statsLoading, setStatsLoading] = useState(false);
@@ -113,6 +117,10 @@ export default function SuppliersPage() {
 
   const fields: FieldConfig[] = [
     { key: "code", label: "Code", required: true, placeholder: "FRN-001" },
+    {
+      key: "entity_type", label: "Type", showInTable: true,
+      render: (val: any) => val === "physique" ? <Badge variant="outline">Physique</Badge> : <Badge variant="secondary">Morale</Badge>
+    },
     { key: "name", label: "Raison sociale", required: true, placeholder: "Nom du fournisseur" },
     { key: "contact_name", label: "Contact", placeholder: "Nom du contact" },
     { key: "email", label: "Email", type: "email", placeholder: "email@fournisseur.ma" },
@@ -136,7 +144,7 @@ export default function SuppliersPage() {
       render: (val) => <span className="tabular-nums text-sm font-medium">{fmtNum(Number(val || 0))}</span>,
     },
     {
-      key: "id", label: "Total achats", showInTable: true,
+      key: "__total_purchases", label: "Total achats", showInTable: true,
       render: (_val, row) => <span className="tabular-nums text-sm font-semibold text-primary">{fmtNum(stats[row.id]?.totalPurchases ?? 0)}</span>,
     } as any,
     {
@@ -175,6 +183,25 @@ export default function SuppliersPage() {
 
   const handleSearch = useCallback((state: typeof searchState) => { setSearchState(state); }, []);
 
+  const handleDuplicate = (supplier: any) => {
+    const { id, created_at, updated_at, ...rest } = supplier;
+    setDetailItem({
+      ...rest,
+      id: "",
+      code: `${supplier.code}-COPIE`,
+      name: `${supplier.name} (copie)`,
+    } as any);
+    setIsNew(true);
+    setDetailOpen(true);
+    toast.success("Fournisseur dupliqué localement. Cliquez sur enregistrer pour confirmer.");
+  };
+
+  const handleExport = () => {
+    const formatted = excelExport.formatSuppliersForExport(filtered);
+    excelExport.exportToExcel(formatted, "Liste_Fournisseurs", "Fournisseurs");
+    toast.success("Export Excel généré avec succès");
+  };
+
   return (
     <AppLayout title="Fournisseurs" subtitle="Gestion des fournisseurs">
       <div className="space-y-4">
@@ -182,10 +209,23 @@ export default function SuppliersPage() {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onChange={setView} />
-            {can("CREATE", "suppliers") && (
-              <Button onClick={() => { setIsNew(true); setDetailItem(null); setDetailOpen(true); }} className="gap-2">
-                <Plus className="h-4 w-4" /> Nouveau fournisseur
+            {can("EXPORT", "suppliers") && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5"
+                onClick={handleExport}
+              >
+                <Download className="h-4 w-4" /> Exporter
               </Button>
+            )}
+            {can("CREATE", "suppliers") && (
+              <>
+                <SupplierImport onImportDone={fetch} companyId={companyId} />
+                <Button onClick={() => { setIsNew(true); setDetailItem(null); setDetailOpen(true); }} className="gap-2">
+                  <Plus className="h-4 w-4" /> Nouveau fournisseur
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -211,6 +251,20 @@ export default function SuppliersPage() {
             canUpdate={can("UPDATE", "suppliers")}
             canDelete={can("DELETE", "suppliers")}
             onRowClick={openDetail}
+            renderExtraActions={(s) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDuplicate(s);
+                }}
+                title="Dupliquer"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
           />
         ) : (
           <SupplierKanban suppliers={filtered} stats={stats} onView={openDetail} />
@@ -218,6 +272,7 @@ export default function SuppliersPage() {
       </div>
 
       <TierDetailDialog
+        key={detailItem?.id || (isNew ? "new" : "none")}
         open={detailOpen}
         onOpenChange={(v) => { setDetailOpen(v); if (!v) { setDetailItem(null); setIsNew(false); } }}
         item={detailItem as any}

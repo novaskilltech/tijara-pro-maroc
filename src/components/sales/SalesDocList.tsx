@@ -186,7 +186,7 @@ export function SalesDocList({
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Aucun document</p>
+        <p className="text-sm text-muted-foreground text-center py-8">{docType === "quotation" ? "Aucun Devis" : "Aucun document"}</p>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>
@@ -268,12 +268,12 @@ export function SalesDocList({
                               {warehouses.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
-                          
+
                           <div className="flex items-center border rounded-md overflow-hidden bg-primary text-primary-foreground shadow-sm">
                             {onConvertToDelivery && (
-                              <Button 
-                                size="sm" 
-                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90" 
+                              <Button
+                                size="sm"
+                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90"
                                 variant="ghost"
                                 onClick={() => onConvertToDelivery(item.id, selectedWh)}
                                 title="Convertir en Bon de Livraison"
@@ -282,9 +282,9 @@ export function SalesDocList({
                               </Button>
                             )}
                             {onConvertToInvoice && (
-                              <Button 
-                                size="sm" 
-                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90" 
+                              <Button
+                                size="sm"
+                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90"
                                 variant="ghost"
                                 onClick={() => onConvertToInvoice(item.id, selectedWh)}
                                 title="Convertir en Facture"
@@ -293,9 +293,9 @@ export function SalesDocList({
                               </Button>
                             )}
                             {onConvert && (
-                              <Button 
-                                size="sm" 
-                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90" 
+                              <Button
+                                size="sm"
+                                className="h-8 px-2 text-xs rounded-none border-r border-primary-foreground/20 hover:bg-primary/90"
                                 variant="ghost"
                                 onClick={() => onConvert(item.id, selectedWh)}
                                 title="Convertir en Bon de Commande"
@@ -304,9 +304,9 @@ export function SalesDocList({
                               </Button>
                             )}
                             {onConvertFull && (
-                              <Button 
-                                size="sm" 
-                                className="h-8 px-2 text-xs rounded-none bg-emerald-600 hover:bg-emerald-700" 
+                              <Button
+                                size="sm"
+                                className="h-8 px-2 text-xs rounded-none bg-emerald-600 hover:bg-emerald-700"
                                 variant="ghost"
                                 onClick={() => onConvertFull(item.id, selectedWh)}
                                 title="Flux complet auto : BC + BL + Facture"

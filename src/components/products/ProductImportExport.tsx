@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Upload, Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Product } from "@/hooks/useProducts";
+import { excelExport } from "@/lib/excel-export";
 
 interface ProductImportExportProps {
   products: Product[];
@@ -23,25 +24,14 @@ export function ProductImportExport({ products, onImportDone }: ProductImportExp
   const [imported, setImported] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const exportCSV = () => {
-    const headers = ["code", "name", "category", "unit", "purchase_unit", "purchase_price", "sale_price", "tva_rate", "min_stock", "barcode", "product_type", "weight", "description"];
-    const rows = products.map((p) =>
-      headers.map((h) => {
-        const val = (p as any)[h];
-        if (val == null) return "";
-        const str = String(val);
-        return str.includes(",") || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
-      }).join(",")
+  const exportExcel = () => {
+    const formattedData = excelExport.formatProductsForExport(products);
+    excelExport.exportToExcel(
+      formattedData, 
+      `produits_${new Date().toISOString().slice(0, 10)}`,
+      "Produits"
     );
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `produits_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Export terminé", description: `${products.length} produits exportés.` });
+    toast({ title: "Export Excel terminé", description: `${products.length} produits exportés.` });
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,8 +112,8 @@ export function ProductImportExport({ products, onImportDone }: ProductImportExp
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={exportCSV}>
-          <Download className="h-4 w-4" /> Exporter CSV
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={exportExcel}>
+          <Download className="h-4 w-4" /> Exporter Excel
         </Button>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4" /> Importer CSV

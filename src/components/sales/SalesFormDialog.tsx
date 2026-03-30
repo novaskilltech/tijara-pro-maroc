@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { SalesDocLine, calcTotals } from "@/hooks/useSales";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { GlobalDiscountSection, type GlobalDiscount, calcTotalsWithGlobalDiscount } from "@/components/GlobalDiscountSection";
 import { DocumentTotalsBlock } from "@/components/DocumentTotalsBlock";
 
@@ -43,6 +43,14 @@ export function SalesFormDialog({ type, onClose, onSubmit }: Props) {
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }));
 
+  // Anti-duplicate filter for products
+  const selectedProductIds = lines.map(l => l.product_id).filter(Boolean);
+  const getProductOptions = (currentProductId: string | null | undefined) => {
+    return products
+      .filter(p => !selectedProductIds.includes(p.id) || p.id === currentProductId)
+      .map(p => ({ value: p.id, label: `${p.code} — ${p.name}` }));
+  };
+
   const updateLine = (idx: number, field: string, value: any) => {
     const updated = [...lines];
     (updated[idx] as any)[field] = value;
@@ -66,9 +74,13 @@ export function SalesFormDialog({ type, onClose, onSubmit }: Props) {
   const handleSubmit = async () => {
     if (!customerId) return;
     if (await isCustomerBlocked(customerId)) return;
+    if (submitting) return; // Prevent double-submit
     setSubmitting(true);
-    await onSubmit(customerId, lines, notes, terms, globalDiscount);
-    setSubmitting(false);
+    try {
+      await onSubmit(customerId, lines, notes, terms, globalDiscount);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -109,7 +121,7 @@ export function SalesFormDialog({ type, onClose, onSubmit }: Props) {
               <div key={idx} className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-3">
                   <SearchableSelect
-                    options={productOptions}
+                    options={getProductOptions(line.product_id)}
                     value={line.product_id || ""}
                     onValueChange={(v) => updateLine(idx, "product_id", v)}
                     placeholder="Produit..."
@@ -158,8 +170,11 @@ export function SalesFormDialog({ type, onClose, onSubmit }: Props) {
               totalTtc={totals.totalTtc}
             />
             <div className="space-x-2">
-              <Button variant="outline" onClick={onClose}>Annuler</Button>
-              <Button onClick={handleSubmit} disabled={submitting || !customerId}>Enregistrer</Button>
+              <Button variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
+              <Button onClick={handleSubmit} disabled={submitting || !customerId}>
+                {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Enregistrer
+              </Button>
             </div>
           </div>
         </div>

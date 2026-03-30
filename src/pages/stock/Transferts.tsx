@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowRightLeft, Plus } from "lucide-react";
+import { ArrowRightLeft, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const Transferts = () => {
@@ -19,8 +19,9 @@ const Transferts = () => {
   const [showTransfer, setShowTransfer] = useState(false);
   const [tFromWh, setTFromWh] = useState("");
   const [tToWh, setTToWh] = useState("");
-  const [tLines, setTLines] = useState<{ product_id: string; quantity: number }[]>([{ product_id: "", quantity: 0 }]);
+  const [tLines, setTLines] = useState<{ product_id: string; quantity: number }[]>([{ product_id: "" , quantity: 0 }]);
   const [tNotes, setTNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     (supabase as any).from("warehouses").select("id, name, code").eq("is_active", true).then(({ data }: any) => setWarehouses(data || []));
@@ -31,9 +32,24 @@ const Transferts = () => {
     if (!tFromWh || !tToWh || tFromWh === tToWh) return;
     const validLines = tLines.filter(l => l.product_id && l.quantity > 0);
     if (validLines.length === 0) return;
-    await createTransfer(tFromWh, tToWh, validLines, tNotes);
-    setShowTransfer(false);
-    setTLines([{ product_id: "", quantity: 0 }]);
+    
+    setIsSubmitting(true);
+    try {
+      await createTransfer(tFromWh, tToWh, validLines, tNotes);
+      setShowTransfer(false);
+      setTLines([{ product_id: "", quantity: 0 }]);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleValidateTransfer = async (id: string) => {
+    setIsSubmitting(true);
+    try {
+      await validateTransfer(id);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -70,7 +86,14 @@ const Transferts = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       {t.status === "draft" && (
-                        <Button size="sm" variant="outline" onClick={() => validateTransfer(t.id)}>Valider</Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleValidateTransfer(t.id)}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Valider"}
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
@@ -117,8 +140,11 @@ const Transferts = () => {
               </div>
               <div><Label>Notes</Label><Textarea value={tNotes} onChange={(e) => setTNotes(e.target.value)} rows={2} /></div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowTransfer(false)}>Annuler</Button>
-                <Button onClick={handleCreateTransfer}>Créer</Button>
+                <Button variant="outline" onClick={() => setShowTransfer(false)} disabled={isSubmitting}>Annuler</Button>
+                <Button onClick={handleCreateTransfer} disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Créer
+                </Button>
               </div>
             </div>
           </DialogContent>

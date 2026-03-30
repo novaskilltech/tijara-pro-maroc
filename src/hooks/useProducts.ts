@@ -88,7 +88,7 @@ export function useProducts() {
     setLoading(true);
     const { data, error } = await supabase
       .from("products")
-      .select("*")
+      .select("*, product_categories(name)")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });
     
@@ -97,7 +97,14 @@ export function useProducts() {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return;
     }
-    setProducts(data as any[] || []); // Keeping manual cast for now as local Product interface might differ slightly
+    // Map category name from joined table
+    const mapped = (data as any[] || []).map((p: any) => ({
+      ...p,
+      category: (Array.isArray(p.product_categories) 
+        ? p.product_categories[0]?.name 
+        : p.product_categories?.name) || p.category || null,
+    }));
+    setProducts(mapped);
   }, [companyId]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
@@ -145,7 +152,84 @@ export function useProducts() {
     return true;
   };
 
-  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct };
+  const duplicateProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      // 1. Fetch source product
+      const { data: source, error: fetchErr } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .single();
+      
+      if (fetchErr || !source) throw new Error(fetchErr?.message || "Produit source introuvable");
+
+      // 2. Prepare new product record
+      const { id: _oldId, created_at: _ca, updated_at: _ua, ...productData } = source;
+      const newProduct = {
+        ...productData,
+        code: `${source.code}-COPIE`,
+        name: `${source.name}-COPIE`,
+        company_id: companyId
+      };
+
+      // 3. Insert new product
+      const { data: created, error: insertErr } = await supabase
+        .from("products")
+        .insert(newProduct as any)
+        .select()
+        .single();
+      
+      if (insertErr || !created) throw new Error(insertErr?.message || "Erreur lors de la création de la copie");
+
+      // 4. Duplicate variants if any
+      const { data: variants, error: varErr } = await supabase
+        .from("product_variants")
+        .select("*")
+        .eq("product_id", id);
+      
+      if (varErr) throw new Error(varErr.message);
+
+      if (variants && variants.length > 0) {
+        for (const v of variants) {
+          const { id: _oldVarId, created_at: _vca, updated_at: _vua, ...varData } = v;
+          const { data: newVar, error: newVarErr } = await supabase
+            .from("product_variants")
+            .insert({ ...varData, product_id: created.id, company_id: companyId } as any)
+            .select()
+            .single();
+          
+          if (newVarErr || !newVar) continue;
+
+          // Duplicate variant attribute links
+          const { data: links, error: linkErr } = await supabase
+            .from("variant_attribute_values")
+            .select("*")
+            .eq("variant_id", v.id);
+          
+          if (!linkErr && links && links.length > 0) {
+            const newLinks = links.map(({ id: _lid, ...l }) => ({
+              ...l,
+              variant_id: newVar.id,
+              company_id: companyId
+            }));
+            await supabase.from("variant_attribute_values").insert(newLinks as any);
+          }
+        }
+      }
+
+      toast({ title: "Produit dupliqué avec succès" });
+      await fetchProducts();
+      return created;
+    } catch (err: any) {
+      toast({ title: "Erreur de duplication", description: err.message, variant: "destructive" });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, duplicateProduct };
 }
 
 export function useProductAttributes() {

@@ -6,7 +6,7 @@ import { ProductImportExport } from "@/components/products/ProductImportExport";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ProductKanban } from "@/components/master/ProductKanban";
 import { ViewToggle } from "@/components/ViewToggle";
-import { Package, Loader2, Plus, Edit, Trash2 } from "lucide-react";
+import { Package, Loader2, Plus, Edit, Trash2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,7 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const SEARCH_FIELDS: SearchableField[] = [
   { key: "name", label: "Nom" },
-  { key: "code", label: "Référence / SKU" },
+  { key: "code", label: "Référence" },
   { key: "barcode", label: "Code-barres" },
   { key: "category", label: "Catégorie" },
 ];
@@ -61,7 +61,7 @@ const QUICK_FILTERS: QuickFilter[] = [
 ];
 
 export default function ProductsPage() {
-  const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { products, loading, fetchProducts, createProduct, updateProduct, deleteProduct, duplicateProduct } = useProducts();
   const { can } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -78,7 +78,11 @@ export default function ProductsPage() {
   const openEdit = (p: Product) => { setEditingProduct(p); setDialogOpen(true); };
 
   const handleSave = async (data: Partial<Product>) => {
-    if (editingProduct) return await updateProduct(editingProduct.id, data);
+    // Check if we are truly editing (valid non-empty ID) or creating (empty or null ID)
+    if (editingProduct && editingProduct.id && editingProduct.id.length > 5) {
+      return await updateProduct(editingProduct.id, data);
+    }
+    // Create new product (including duplicates that have empty id)
     return await createProduct(data);
   };
 
@@ -147,9 +151,10 @@ export default function ProductsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
+                   <TableHead className="w-12">Image</TableHead>
                    <TableHead className="min-w-[120px] md:min-w-[160px]">Code</TableHead>
                    <TableHead className="w-full min-w-[200px]">Désignation</TableHead>
-                   <TableHead className="hidden md:table-cell">Catégorie</TableHead>
+                   <TableHead>Catégorie</TableHead>
                    <TableHead className="text-right">Prix vente</TableHead>
                    <TableHead className="text-right hidden sm:table-cell">Prix achat</TableHead>
                    <TableHead className="text-right hidden lg:table-cell">TVA</TableHead>
@@ -159,14 +164,35 @@ export default function ProductsPage() {
               <TableBody>
                  {filtered.map((p, i) => (
                    <TableRow key={p.id} className={`cursor-pointer hover:bg-muted/30 transition-colors ${i % 2 !== 0 ? "bg-muted/10" : ""}`} onClick={() => openEdit(p)}>
+                    <TableCell>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt={p.name} className="h-8 w-8 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-[10px] md:text-xs">{p.code}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="hidden md:table-cell">{p.category || "—"}</TableCell>
+                    <TableCell>{p.category || "—"}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(p.sale_price)}</TableCell>
                     <TableCell className="text-right hidden sm:table-cell">{formatCurrency(p.purchase_price)}</TableCell>
                     <TableCell className="text-right hidden lg:table-cell">{p.tva_rate}%</TableCell>
                     <TableCell>
                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                         <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            duplicateProduct(p.id);
+                          }}
+                          title="Dupliquer"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
                           <Edit className="h-3.5 w-3.5" />
                         </Button>

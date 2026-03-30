@@ -33,6 +33,7 @@ interface MasterDataPageProps<T> {
   canUpdate?: boolean;
   canDelete?: boolean;
   extraActions?: ReactNode;
+  renderExtraActions?: (row: T) => ReactNode;
   onRowClick?: (row: T) => void;
 }
 
@@ -49,6 +50,7 @@ export function MasterDataPage<T extends { id: string }>({
   canUpdate = true,
   canDelete = true,
   extraActions,
+  renderExtraActions,
   onRowClick,
 }: MasterDataPageProps<T>) {
   const [search, setSearch] = useState("");
@@ -222,8 +224,9 @@ export function MasterDataPage<T extends { id: string }>({
                   </TableCell>
                 ))}
                 <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {renderExtraActions && renderExtraActions(row)}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRowClick ? onRowClick(row) : openEdit(row)}>
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
                     {canDelete && (

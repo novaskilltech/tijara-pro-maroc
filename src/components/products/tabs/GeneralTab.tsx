@@ -50,6 +50,7 @@ export function GeneralTab({ form, updateField, productId }: GeneralTabProps) {
       {/* Top row: Image + Name + Code + Type */}
       <div className="flex gap-5 items-start">
         <ProductImageUpload
+          productId={productId || undefined}
           imageUrl={form.image_url}
           onImageChange={(url) => updateField("image_url", url)}
         />
@@ -64,7 +65,7 @@ export function GeneralTab({ form, updateField, productId }: GeneralTabProps) {
             />
           </div>
           <div>
-            <Label htmlFor="code">Référence interne (SKU) *</Label>
+            <Label htmlFor="code">Référence interne *</Label>
             <Input
               id="code"
               value={form.code || ""}

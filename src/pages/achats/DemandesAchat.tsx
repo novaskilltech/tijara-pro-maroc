@@ -10,7 +10,7 @@ const DemandesAchat = () => {
   const [editItem, setEditItem] = useState<any>(null);
 
   return (
-    <AppLayout title="Demandes d'achat" subtitle="Gestion des demandes d'achat internes">
+    <AppLayout title="Demandes d'achat" subtitle="Gestion des demandes d'achat">
       <PurchaseRequestList
         items={hook.items}
         loading={hook.loading}

@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Save, Upload, Loader2, Plus, X, Check, Edit2 } from "lucide-react";
+import { Building2, Save, Upload, Loader2, Plus, X, Check, Edit2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
+import { validateEmail, normalizeEmail } from "@/lib/email-validation";
 
 const formes = ["SARL", "SA", "SAS", "SARLAU", "SNC", "Auto-entrepreneur", "Autre"];
 
@@ -43,6 +44,8 @@ export default function CompaniesPage() {
   const [form, setForm] = useState<Partial<Company>>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -66,6 +69,17 @@ export default function CompaniesPage() {
       toast({ title: "Erreur", description: "La raison sociale est obligatoire.", variant: "destructive" });
       return;
     }
+
+    // Email validation
+    if (form.email) {
+      const err = validateEmail(form.email);
+      if (err) {
+        toast({ title: "Erreur", description: err, variant: "destructive" });
+        return;
+      }
+      form.email = normalizeEmail(form.email);
+    }
+
     setSaving(true);
     let ok: boolean;
     if (editId) {
@@ -115,6 +129,45 @@ export default function CompaniesPage() {
     setUploading(false);
   };
 
+  const handleDeleteClick = (c: Company) => {
+    setCompanyToDelete(c.id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!companyToDelete) return;
+    // Check if company has any related data before deleting
+    const { data: users } = await (supabase as any)
+      .from("user_companies")
+      .select("id")
+      .eq("company_id", companyToDelete);
+
+    if (users && users.length > 0) {
+      toast({
+        title: "Suppression impossible",
+        description: "Cette société a des utilisateurs associés. Supprimez-les d'abord.",
+        variant: "destructive"
+      });
+      setDeleteConfirmOpen(false);
+      setCompanyToDelete(null);
+      return;
+    }
+
+    const { error } = await (supabase as any)
+      .from("companies")
+      .delete()
+      .eq("id", companyToDelete);
+
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Société supprimée", description: "La société a été supprimée avec succès." });
+      await refetch();
+    }
+    setDeleteConfirmOpen(false);
+    setCompanyToDelete(null);
+  };
+
   return (
     <AppLayout title="Gestion des Sociétés" subtitle="Créez et gérez plusieurs sociétés">
       <div className="space-y-6">
@@ -156,10 +209,21 @@ export default function CompaniesPage() {
                       Modifier
                     </Button>
                     {activeCompany?.id !== c.id && (
-                      <Button size="sm" className="flex-1 gap-1" onClick={() => switchCompany(c)}>
-                        <Check className="h-3.5 w-3.5" />
-                        Activer
-                      </Button>
+                      <>
+                        <Button size="sm" className="flex-1 gap-1" onClick={() => switchCompany(c)}>
+                          <Check className="h-3.5 w-3.5" />
+                          Activer
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteClick(c)}
+                          title="Supprimer la société"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -229,6 +293,25 @@ export default function CompaniesPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Supprimer la société</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Êtes-vous sûr de vouloir supprimer cette société ? Cette action est irréversible.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Annuler</Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Supprimer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppLayout>

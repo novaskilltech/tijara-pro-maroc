@@ -439,7 +439,7 @@ export function VariantsTab({ productId, productName, productUnit }: VariantsTab
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Référence interne (SKU)</Label>
+                <Label>Référence interne</Label>
                 <Input value={variantForm.sku || ""} onChange={(e) => setVariantForm((p) => ({ ...p, sku: e.target.value }))} placeholder="REF-001" />
               </div>
               <div className="space-y-2">

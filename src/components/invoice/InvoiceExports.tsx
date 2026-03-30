@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { exportToCsv } from "@/lib/invoice-export";
+import { excelExport } from "@/lib/excel-export";
 import { printJournalPdf } from "@/lib/pdf";
 import { useCompany } from "@/hooks/useCompany";
 import { Download, FileSpreadsheet, Loader2, CalendarIcon, FileText } from "lucide-react";
@@ -36,7 +36,8 @@ export function InvoiceExports() {
 
   const handleExport = () => {
     const filename = `${exportType === "client" ? "factures_clients" : "factures_fournisseurs"}_${format(new Date(), "yyyyMMdd")}`;
-    exportToCsv(filteredInvoices, filename);
+    const formattedData = excelExport.formatInvoicesForExport(filteredInvoices);
+    excelExport.exportToExcel(formattedData, filename, "Factures");
   };
 
   const handlePdfJournal = async () => {
@@ -153,7 +154,7 @@ export function InvoiceExports() {
             <div className="flex gap-2">
               <Button onClick={handleExport} disabled={loading || filteredInvoices.length === 0} className="gap-2">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Exporter CSV
+                Exporter Excel
               </Button>
               <Button 
                 variant="outline" 

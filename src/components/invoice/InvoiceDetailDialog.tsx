@@ -137,21 +137,36 @@ export function InvoiceDetailDialog({
               {isValidated && (
                 <>
                   {invoice.remaining_balance > 0 ? (
-                    <Button variant="outline" size="sm" onClick={() => {
-                      onClose();
-                      navigate("/reglements/encaissements", {
-                        state: {
-                          prefill: {
-                            customerId: invoice.customer_id,
-                            invoiceId: invoice.id,
-                            invoiceNumber: invoice.invoice_number,
-                            remainingBalance: invoice.remaining_balance,
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={acting}
+                      onClick={() => {
+                        const targetPath = invoice.invoice_type === 'supplier'
+                          ? "/reglements/decaissements"
+                          : "/reglements/encaissements";
+
+                        onClose();
+                        navigate(targetPath, {
+                          state: {
+                            prefill: {
+                              projectId: activeCompany?.id,
+                              customerId: invoice.invoice_type === 'client' ? invoice.customer_id : undefined,
+                              supplierId: invoice.invoice_type === 'supplier' ? invoice.supplier_id : undefined,
+                              invoiceId: invoice.id,
+                              invoiceNumber: invoice.invoice_number,
+                              remainingBalance: invoice.remaining_balance,
+                              amount: invoice.remaining_balance,
+                            },
                           },
-                        },
-                      });
-                    }} className="gap-1">
-                      <Banknote className="h-4 w-4" /> Payer la facture
+                        });
+                      }}
+                      className="gap-1 text-primary hover:text-primary-foreground border-primary/20 hover:bg-primary/10"
+                    >
+                      {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                      Payer la facture
                     </Button>
+
                   ) : (
                     <Button variant="outline" size="sm" disabled className="gap-1">
                       <CreditCard className="h-4 w-4" /> Cette facture est déjà totalement réglée.
@@ -178,7 +193,7 @@ export function InvoiceDetailDialog({
             <TabsTrigger value="attachments">Pièces jointes</TabsTrigger>
             <TabsTrigger value="history">Historique</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="details" className="mt-4 space-y-4">
             <div className="grid sm:grid-cols-3 gap-4 text-sm">
               <div>
@@ -196,7 +211,7 @@ export function InvoiceDetailDialog({
             </div>
 
             <div className="mt-4">
-              <InvoiceLineEditor lines={lines} onChange={() => {}} products={products} invoiceType={invoice.invoice_type} readOnly />
+              <InvoiceLineEditor lines={lines} onChange={() => { }} products={products} invoiceType={invoice.invoice_type} readOnly />
             </div>
 
             <div className="flex justify-end mt-4">
@@ -226,16 +241,16 @@ export function InvoiceDetailDialog({
 
           <TabsContent value="history" className="mt-4">
             <div className="border rounded-xl overflow-hidden h-[400px]">
-              <AuditLogViewer 
-                tableName="invoices" 
-                recordId={invoice.id} 
-                companyId={activeCompany?.id} 
+              <AuditLogViewer
+                tableName="invoices"
+                recordId={invoice.id}
+                companyId={activeCompany?.id}
               />
             </div>
           </TabsContent>
         </Tabs>
 
-        
+
       </DialogContent>
     </Dialog>
   );

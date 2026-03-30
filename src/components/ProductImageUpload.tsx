@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ImagePlus, X, Loader2 } from "lucide-react";
@@ -13,6 +13,11 @@ interface ProductImageUploadProps {
 export function ProductImageUpload({ productId, imageUrl, onImageChange }: ProductImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(imageUrl || null);
+
+  // Sync preview with prop imageUrl when it changes
+  useEffect(() => {
+    setPreview(imageUrl || null);
+  }, [imageUrl]);
 
   const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,12 +59,22 @@ export function ProductImageUpload({ productId, imageUrl, onImageChange }: Produ
     <div className="space-y-2">
       <p className="text-sm font-medium text-foreground">Image produit</p>
       {preview ? (
-        <div className="relative w-36 h-36 rounded-lg border border-border overflow-hidden bg-muted group">
-          <img src={preview} alt="Produit" className="w-full h-full object-contain" />
+        <div className="relative w-36 h-36 rounded-lg border border-border overflow-hidden bg-muted group flex items-center justify-center">
+          <img 
+            src={preview} 
+            alt="Produit" 
+            className="max-w-full max-h-full object-contain"
+            key={preview} // Force re-render if URL changes
+            onError={(e) => {
+              console.error("Image load error:", preview);
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
           <button
             type="button"
             onClick={handleRemove}
-            className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
           >
             <X className="h-3 w-3" />
           </button>

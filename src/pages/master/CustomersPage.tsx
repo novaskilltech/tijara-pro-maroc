@@ -2,43 +2,34 @@ import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { MasterDataPage, FieldConfig } from "@/components/MasterDataPage";
 import { CustomerKanban } from "@/components/master/CustomerKanban";
+import { CustomerImport } from "@/components/master/CustomerImport";
 import { TierDetailDialog } from "@/components/master/TierDetailDialog";
 import { ViewToggle } from "@/components/ViewToggle";
 import { AdvancedSearch, applyAdvancedSearch, type SearchOperator, type SearchableField, type FilterOption, type QuickFilter } from "@/components/AdvancedSearch";
 import { useCrud } from "@/hooks/useCrud";
 import { useCompany } from "@/hooks/useCompany";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, Copy, Download, AlertTriangle, AlertCircle } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { excelExport } from "@/lib/excel-export";
 
 interface Customer {
-  id: string;
-  code: string;
-  name: string;
-  contact_name: string;
-  email: string;
-  phone: string;
-  phone2: string;
-  city: string;
-  ice: string;
-  rc: string;
-  if_number: string;
-  patente: string;
-  address: string;
-  payment_terms: string;
-  credit_limit: number;
-  is_active: boolean;
-  bank_name: string;
-  rib: string;
-  account_number: string;
-  iban: string;
-  swift: string;
-  fax: string;
-  notes: string;
+  id: string; code: string; name: string; contact_name: string; email: string;
+  phone: string; phone2: string; city: string; ice: string; rc: string;
+  if_number: string; patente: string; address: string; payment_terms: string;
+  credit_limit: number; is_active: boolean; bank_id: string | null; bank_name: string; rib: string;
+  account_number: string; iban: string; swift: string; fax: string; notes: string;
+  entity_type: "physique" | "morale";
 }
+
+interface CustomerStats {
+  [customerId: string]: { outstandingReceivable: number };
+}
+
+const fmtNum = (n: number) => n.toLocaleString("fr-MA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const SEARCH_FIELDS: SearchableField[] = [
   { key: "name", label: "Nom" },
@@ -50,24 +41,10 @@ const SEARCH_FIELDS: SearchableField[] = [
 ];
 
 const FILTERS: FilterOption[] = [
+  { key: "is_active", label: "Statut", type: "boolean", trueLabel: "Actif", falseLabel: "Bloqué" },
+  { key: "has_unpaid", label: "Impayés", type: "boolean", trueLabel: "Oui", falseLabel: "Non" },
   {
-    key: "is_active",
-    label: "Statut",
-    type: "boolean",
-    trueLabel: "Actif",
-    falseLabel: "Bloqué",
-  },
-  {
-    key: "has_unpaid",
-    label: "Impayés",
-    type: "boolean",
-    trueLabel: "Oui",
-    falseLabel: "Non",
-  },
-  {
-    key: "payment_terms",
-    label: "Conditions paiement",
-    type: "select",
+    key: "payment_terms", label: "Conditions paiement", type: "select",
     options: [
       { value: "comptant", label: "Comptant" },
       { value: "30j", label: "30 jours" },
@@ -83,73 +60,43 @@ const QUICK_FILTERS: QuickFilter[] = [
   { label: "Bloqués", filters: { is_active: "false" } },
 ];
 
-const fields: FieldConfig[] = [
-  { key: "code", label: "Code", required: true, placeholder: "CLI-001" },
-  { key: "name", label: "Raison sociale", required: true, placeholder: "Nom de l'entreprise" },
-  { key: "contact_name", label: "Contact", placeholder: "Nom du contact" },
-  { key: "email", label: "Email", type: "email", placeholder: "email@entreprise.ma" },
-  { key: "phone", label: "Téléphone", placeholder: "+212..." },
-  { key: "city", label: "Ville", placeholder: "Casablanca" },
-  {
-    key: "is_active",
-    label: "Statut",
-    showInTable: true,
-    render: (val: any) => {
-      const active = val !== false;
-      return active ? (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-success/10 text-success border-success/20 font-medium">Actif</Badge>
-      ) : (
-        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-medium">
-          <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Bloqué
-        </Badge>
-      );
-    },
-  },
-  { key: "ice", label: "ICE", showInTable: false },
-  { key: "payment_terms", label: "Conditions de paiement", type: "select", defaultValue: "30j", options: [
-    { value: "comptant", label: "Comptant" },
-    { value: "30j", label: "30 jours" },
-    { value: "60j", label: "60 jours" },
-    { value: "90j", label: "90 jours" },
-  ], showInTable: false },
-  { key: "credit_limit", label: "Plafond crédit (MAD)", type: "number", defaultValue: 0, showInTable: false },
-  { key: "notes", label: "Notes", type: "textarea", showInTable: false },
-];
-
 export default function CustomersPage() {
-  const { data, loading, create, update, remove } = useCrud<Customer>({ table: "customers", orderBy: "code", ascending: true, companyScoped: true });
   const { activeCompany } = useCompany();
   const { can } = usePermissions();
+  const companyId = activeCompany?.id ?? null;
+  const { data, loading, fetch, create, update, remove } = useCrud<Customer>({ table: "customers", orderBy: "code", ascending: true, companyScoped: true });
+
+  const [stats, setStats] = useState<CustomerStats>({});
+  const [statsLoading, setStatsLoading] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
-  const [stats, setStats] = useState<Record<string, { outstandingReceivable: number }>>({});
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<Customer | null>(null);
   const [isNew, setIsNew] = useState(false);
 
-  // Search state
   const [searchState, setSearchState] = useState<{
-    query: string;
-    operator: SearchOperator;
-    activeFilters: Record<string, string>;
+    query: string; operator: SearchOperator; activeFilters: Record<string, string>;
   }>({ query: "", operator: "contains", activeFilters: {} });
 
   const fetchStats = useCallback(async () => {
     if (!data.length) return;
+    setStatsLoading(true);
     let query = (supabase as any)
       .from("invoices")
       .select("customer_id, remaining_balance")
       .eq("invoice_type", "client")
       .in("status", ["validated", "paid"]);
-    if (activeCompany?.id) query = query.eq("company_id", activeCompany.id);
+    if (companyId) query = query.eq("company_id", companyId);
     const { data: invoices } = await query;
-    const map: Record<string, { outstandingReceivable: number }> = {};
+    const map: CustomerStats = {};
     (invoices || []).forEach((inv: any) => {
-      if (!inv.customer_id) return;
-      if (!map[inv.customer_id]) map[inv.customer_id] = { outstandingReceivable: 0 };
-      map[inv.customer_id].outstandingReceivable += Number(inv.remaining_balance);
+      const cid = inv.customer_id;
+      if (!cid) return;
+      if (!map[cid]) map[cid] = { outstandingReceivable: 0 };
+      map[cid].outstandingReceivable += Number(inv.remaining_balance);
     });
     setStats(map);
-  }, [data, activeCompany?.id]);
+    setStatsLoading(false);
+  }, [data, companyId]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
@@ -168,11 +115,60 @@ export default function CustomersPage() {
     }
   );
 
-  const openDetail = (item: Customer) => {
-    setDetailItem(item);
-    setIsNew(false);
-    setDetailOpen(true);
-  };
+  const fields: FieldConfig[] = [
+    { key: "code", label: "Code", required: true, placeholder: "CLI-001" },
+    {
+      key: "entity_type", label: "Type", showInTable: true,
+      render: (val: any) => val === "physique" ? <Badge variant="outline">Physique</Badge> : <Badge variant="secondary">Morale</Badge>
+    },
+    { key: "name", label: "Raison sociale", required: true, placeholder: "Nom du client" },
+    { key: "contact_name", label: "Contact", placeholder: "Nom du contact" },
+    { key: "email", label: "Email", type: "email", placeholder: "email@client.ma" },
+    { key: "phone", label: "Téléphone", placeholder: "+212..." },
+    { key: "city", label: "Ville", placeholder: "Casablanca" },
+    {
+      key: "is_active", label: "Statut", showInTable: true,
+      render: (val: any) => {
+        const active = val !== false;
+        return active ? (
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-success/10 text-success border-success/20 font-medium">Actif</Badge>
+        ) : (
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-medium">
+            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Bloqué
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "credit_limit", label: "Plafond crédit (MAD)", type: "number", placeholder: "50000", defaultValue: 0, showInTable: true,
+      render: (val) => <span className="tabular-nums text-sm font-medium">{fmtNum(Number(val || 0))}</span>,
+    },
+    {
+      key: "__unpaid", label: "Impayés", showInTable: true,
+      render: (_val, row) => {
+        const unpaid = stats[row.id]?.outstandingReceivable ?? 0;
+        const limit = Number(row.credit_limit || 0);
+        const overLimit = limit > 0 && unpaid > limit;
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className={`tabular-nums text-sm font-semibold ${overLimit ? "text-destructive" : unpaid > 0 ? "text-warning" : "text-muted-foreground"}`}>{fmtNum(unpaid)}</span>
+            {overLimit && <Badge variant="destructive" className="text-[10px] px-1 py-0 h-4"><AlertCircle className="h-2.5 w-2.5 mr-0.5" />Dépassé</Badge>}
+          </div>
+        );
+      },
+    } as any,
+    {
+      key: "payment_terms", label: "Conditions", type: "select", defaultValue: "30j",
+      options: [{ value: "comptant", label: "Comptant" }, { value: "30j", label: "30 jours" }, { value: "60j", label: "60 jours" }, { value: "90j", label: "90 jours" }],
+      showInTable: true,
+      render: (val: any) => {
+        const map: Record<string, string> = { "comptant": "Comptant", "30j": "30 jours", "60j": "60 jours", "90j": "90 jours" };
+        return <span className="text-sm text-muted-foreground">{map[val] ?? val ?? "—"}</span>;
+      },
+    },
+  ];
+
+  const openDetail = (item: Customer) => { setDetailItem(item); setIsNew(false); setDetailOpen(true); };
 
   const handleSave = async (formData: Record<string, any>) => {
     if (isNew) return await create(formData as Partial<Customer>);
@@ -180,9 +176,26 @@ export default function CustomersPage() {
     return false;
   };
 
-  const handleSearch = useCallback((state: typeof searchState) => {
-    setSearchState(state);
-  }, []);
+  const handleSearch = useCallback((state: typeof searchState) => { setSearchState(state); }, []);
+
+  const handleDuplicate = (customer: any) => {
+    const { id, created_at, updated_at, ...rest } = customer;
+    setDetailItem({
+      ...rest,
+      id: "",
+      code: `${customer.code}-COPIE`,
+      name: `${customer.name} (copie)`,
+    } as any);
+    setIsNew(true);
+    setDetailOpen(true);
+    toast.success("Client dupliqué localement. Cliquez sur enregistrer pour confirmer.");
+  };
+
+  const handleExport = () => {
+    const formatted = excelExport.formatCustomersForExport(filtered);
+    excelExport.exportToExcel(formatted, "Liste_Clients", "Clients");
+    toast.success("Export Excel généré avec succès");
+  };
 
   return (
     <AppLayout title="Clients" subtitle="Gestion du portefeuille clients">
@@ -191,10 +204,18 @@ export default function CustomersPage() {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onChange={setView} />
-            {can("CREATE", "customers") && (
-              <Button onClick={() => { setIsNew(true); setDetailItem(null); setDetailOpen(true); }} className="gap-2">
-                <Plus className="h-4 w-4" /> Nouveau client
+            {can("EXPORT", "customers") && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
+                <Download className="h-4 w-4" /> Exporter
               </Button>
+            )}
+            {can("CREATE", "customers") && (
+              <>
+                <CustomerImport onImportDone={fetch} companyId={companyId} />
+                <Button onClick={() => { setIsNew(true); setDetailItem(null); setDetailOpen(true); }} className="gap-2">
+                  <Plus className="h-4 w-4" /> Nouveau client
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -211,7 +232,7 @@ export default function CustomersPage() {
             title="Client"
             icon={<Users className="h-8 w-8" />}
             data={filtered}
-            loading={loading}
+            loading={loading || statsLoading}
             fields={fields}
             onCreate={create}
             onUpdate={update}
@@ -220,17 +241,28 @@ export default function CustomersPage() {
             canUpdate={can("UPDATE", "customers")}
             canDelete={can("DELETE", "customers")}
             onRowClick={openDetail}
+            renderExtraActions={(c) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDuplicate(c);
+                }}
+                title="Dupliquer"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            )}
           />
         ) : (
-          <CustomerKanban
-            customers={filtered}
-            stats={stats}
-            onView={openDetail}
-          />
+          <CustomerKanban customers={filtered} stats={stats as any} onView={openDetail} />
         )}
       </div>
 
       <TierDetailDialog
+        key={detailItem?.id || (isNew ? "new" : "none")}
         open={detailOpen}
         onOpenChange={(v) => { setDetailOpen(v); if (!v) { setDetailItem(null); setIsNew(false); } }}
         item={detailItem as any}

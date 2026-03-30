@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useProductCategories, ProductCategory, CategoryTreeNode } from "@/hooks/useProductCategories";
 import {
@@ -140,7 +140,10 @@ function CategoryNode({
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={() => onEdit(node)}
+            onClick={() => {
+              const { children, fullPath, ...catOnly } = node;
+              onEdit(catOnly as ProductCategory);
+            }}
           >
             <Edit className="h-3.5 w-3.5" />
           </Button>
@@ -211,9 +214,9 @@ function CategoryFormDialog({
   const [form, setForm] = useState<CategoryFormState>({ ...defaultForm });
   const [saving, setSaving] = useState(false);
 
-  // Reset form whenever dialog opens
-  const handleOpenChange = (v: boolean) => {
-    if (v) {
+  // Sync form whenever dialog opens or editing target changes
+  useEffect(() => {
+    if (open) {
       if (editing) {
         setForm({
           name: editing.name,
@@ -225,6 +228,15 @@ function CategoryFormDialog({
       } else {
         setForm({ ...defaultForm, parent_id: defaultParentId });
       }
+    }
+  }, [open, editing?.id, defaultParentId]);
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
+      setForm({ ...defaultForm });
+      // Important: if we're closing, also clear editing state in parent 
+      // but wait for animation if needed, or just clear it here if possible.
+      // Actually, CategoriesPage manages formOpen and editing separately.
     }
     onOpenChange(v);
   };
@@ -375,9 +387,19 @@ export default function CategoriesPage() {
   };
 
   const openEdit = (cat: ProductCategory) => {
-    setEditing(cat);
+    // Ensure we don't carry over temporary tree properties
+    const { children, ...baseCat } = cat as any;
+    setEditing({ ...baseCat });
     setDefaultParentId(null);
     setFormOpen(true);
+  };
+
+  const handleCloseForm = (open: boolean) => {
+    setFormOpen(open);
+    if (!open) {
+      // Clear editing state after a short delay to allow dialog close animation
+      setTimeout(() => setEditing(null), 200);
+    }
   };
 
   const handleSave = async (data: Partial<ProductCategory>) => {
@@ -470,8 +492,9 @@ export default function CategoriesPage() {
 
       {/* Form Dialog */}
       <CategoryFormDialog
+        key={editing?.id || "new-category"}
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={handleCloseForm}
         editing={editing}
         defaultParentId={defaultParentId}
         categories={categories}

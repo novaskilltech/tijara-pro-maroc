@@ -73,78 +73,93 @@ export async function generateDocumentPdf(
   <meta charset="UTF-8">
   <title>${DOC_TITLES[data.type]} ${data.number}</title>
   <style>
-    @page { size: A4; margin: 15mm; }
+    @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a202c; line-height: 1.5; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 3px solid #2b6cb0; }
-    .company-info { font-size: 10px; color: #4a5568; line-height: 1.6; }
-    .doc-title { text-align: center; margin: 20px 0; }
-    .doc-title h1 { font-size: 22px; color: #2b6cb0; letter-spacing: 2px; }
-    .doc-title .doc-number { font-size: 14px; color: #4a5568; margin-top: 4px; }
-    .parties { display: flex; justify-content: space-between; margin: 20px 0 30px; }
-    .party-box { width: 48%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 4px; }
-    .party-box h3 { font-size: 10px; text-transform: uppercase; color: #718096; margin-bottom: 6px; letter-spacing: 1px; }
-    .party-box p { font-size: 11px; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th { background: #2b6cb0; color: white; padding: 10px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .totals { margin-left: auto; width: 280px; }
-    .totals tr td { padding: 6px 12px; font-size: 12px; }
-    .totals .total-row { background: #2b6cb0; color: white; font-size: 14px; font-weight: bold; }
-    .footer { margin-top: 40px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #718096; text-align: center; line-height: 1.8; }
-    .notes { margin-top: 20px; padding: 10px; background: #f7fafc; border-left: 3px solid #2b6cb0; font-size: 10px; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10px; color: #1a202c; line-height: 1.4; padding: 20px; }
+    
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #2b6cb0; padding-bottom: 10px; }
+    .logo-container { width: 50%; }
+    .company-details { width: 45%; text-align: right; font-size: 9px; color: #4a5568; }
+    
+    .doc-info { display: flex; justify-content: space-between; margin-bottom: 25px; }
+    .doc-title-box { width: 50%; }
+    .doc-title-box h1 { font-size: 18px; color: #2b6cb0; text-transform: uppercase; margin-bottom: 5px; }
+    .doc-title-box p { font-size: 12px; font-weight: bold; color: #4a5568; }
+    
+    .party-info { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 20px; }
+    .party-box { width: 48%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; }
+    .party-label { font-size: 8px; text-transform: uppercase; color: #718096; font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+    .party-name { font-size: 11px; font-weight: bold; margin: 4px 0; }
+    
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #2b6cb0; color: white; padding: 8px 5px; text-align: left; font-size: 9px; text-transform: uppercase; }
+    td { padding: 7px 5px; border-bottom: 1px solid #edf2f7; vertical-align: top; }
+    
+    .totals-container { display: flex; justify-content: flex-end; }
+    .totals-table { width: 250px; }
+    .totals-table tr td { padding: 4px 8px; border-bottom: none; }
+    .totals-table .total-row { background: #2b6cb0; color: white; font-weight: bold; font-size: 12px; }
+    
+    .notes-box { margin-top: 20px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 9px; min-height: 60px; }
+    .notes-label { font-weight: bold; color: #4a5568; margin-bottom: 4px; display: block; }
+    
+    .footer { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 8px; color: #718096; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div>${logoHtml}
-      <div class="company-info" style="margin-top:8px;">
-        <strong>${company.raison_sociale}</strong> ${company.forme_juridique ? `— ${company.forme_juridique}` : ""}<br/>
-        ${company.address ? `${company.address}, ` : ""}${company.city || ""} ${company.postal_code || ""}<br/>
-        ${company.phone ? `Tél: ${company.phone}` : ""}${company.fax ? ` | Fax: ${company.fax}` : ""}<br/>
-        ${company.email ? `Email: ${company.email}` : ""}${company.website ? ` | ${company.website}` : ""}
+    <div class="logo-container">
+      ${logoHtml}
+      <div style="margin-top: 10px; font-weight: bold; font-size: 11px;">${company.raison_sociale}</div>
+      <div style="font-size: 9px; color: #4a5568;">
+        ${company.address ? `${company.address}<br>` : ""}
+        ${company.city || ""} ${company.postal_code || ""}
       </div>
     </div>
-    <div class="company-info" style="text-align:right;">
-      ${company.ice ? `ICE: ${company.ice}<br/>` : ""}
-      ${company.if_number ? `IF: ${company.if_number}<br/>` : ""}
-      ${company.rc ? `RC: ${company.rc}<br/>` : ""}
-      ${company.patente ? `Patente: ${company.patente}<br/>` : ""}
-      ${company.cnss ? `CNSS: ${company.cnss}<br/>` : ""}
-      ${company.capital ? `Capital: ${Number(company.capital).toLocaleString("fr-MA")} MAD` : ""}
+    <div class="company-details">
+      ${company.phone ? `Tél: ${company.phone}<br>` : ""}
+      ${company.email ? `Email: ${company.email}<br>` : ""}
+      ${company.ice ? `ICE: ${company.ice}<br>` : ""}
+      ${company.if_number ? `IF: ${company.if_number}<br>` : ""}
+      ${company.rc ? `RC: ${company.rc}<br>` : ""}
     </div>
   </div>
 
-  <div class="doc-title">
-    <h1>${DOC_TITLES[data.type]}</h1>
-    <div class="doc-number">${data.number} — ${data.date}</div>
-  </div>
-
-  <div class="parties">
-    <div class="party-box">
-      <h3>Client / Tiers</h3>
-      <p><strong>${data.clientName}</strong></p>
-      ${data.clientAddress ? `<p>${data.clientAddress}</p>` : ""}
-      ${data.clientIce ? `<p>ICE: ${data.clientIce}</p>` : ""}
+  <div class="doc-info">
+    <div class="doc-title-box">
+      <h1>${DOC_TITLES[data.type]}</h1>
+      <p>N° ${data.number}</p>
     </div>
-    <div class="party-box">
-      <h3>Informations</h3>
+    <div style="text-align: right;">
       <p>Date: <strong>${data.date}</strong></p>
       ${data.dueDate ? `<p>Échéance: <strong>${data.dueDate}</strong></p>` : ""}
-      ${data.paymentTerms ? `<p>Conditions: ${data.paymentTerms}</p>` : ""}
+    </div>
+  </div>
+
+  <div class="party-info">
+    <div class="party-box">
+      <div class="party-label">Destinataire</div>
+      <div class="party-name">${data.clientName}</div>
+      ${data.clientAddress ? `<div>${data.clientAddress}</div>` : ""}
+      ${data.clientIce ? `<div style="margin-top: 4px;">ICE: ${data.clientIce}</div>` : ""}
+    </div>
+    <div class="party-box">
+      <div class="party-label">Informations de Paiement</div>
+      ${data.paymentTerms ? `<div>Conditions: ${data.paymentTerms}</div>` : "<div>Conditions: Sur facture</div>"}
+      ${bankAccount ? `<div style="margin-top: 5px;"><strong>${bankAccount.bank_name}</strong><br>RIB: ${bankAccount.rib}</div>` : ""}
     </div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="width:40px;text-align:center;">#</th>
+        <th style="width: 30px; text-align: center;">#</th>
         <th>Désignation</th>
-        <th style="width:60px;text-align:center;">Qté</th>
-        <th style="width:90px;text-align:right;">P.U. (MAD)</th>
-        <th style="width:60px;text-align:center;">Rem.</th>
-        <th style="width:60px;text-align:center;">TVA</th>
-        <th style="width:100px;text-align:right;">Total HT</th>
+        <th style="width: 50px; text-align: center;">Qté</th>
+        <th style="width: 80px; text-align: right;">P.U. HT</th>
+        <th style="width: 40px; text-align: center;">Rem.</th>
+        <th style="width: 40px; text-align: center;">TVA</th>
+        <th style="width: 90px; text-align: right;">Total HT</th>
       </tr>
     </thead>
     <tbody>
@@ -152,18 +167,36 @@ export async function generateDocumentPdf(
     </tbody>
   </table>
 
-  <table class="totals">
-    <tr><td>Total HT</td><td style="text-align:right;">${data.subtotalHt.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td></tr>
-    <tr><td>Total TVA</td><td style="text-align:right;">${data.totalTva.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td></tr>
-    <tr class="total-row"><td style="padding:10px 12px;">Total TTC</td><td style="text-align:right;padding:10px 12px;">${data.totalTtc.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td></tr>
-  </table>
+  <div class="totals-container">
+    <table class="totals-table">
+      <tr>
+        <td>Total Hors Taxe</td>
+        <td style="text-align: right; font-weight: bold;">${data.subtotalHt.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td>
+      </tr>
+      <tr>
+        <td>Total TVA</td>
+        <td style="text-align: right; font-weight: bold;">${data.totalTva.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td>
+      </tr>
+      <tr class="total-row">
+        <td>TOTAL TTC</td>
+        <td style="text-align: right;">${data.totalTtc.toLocaleString("fr-MA", { minimumFractionDigits: 2 })} MAD</td>
+      </tr>
+    </table>
+  </div>
 
-  ${data.notes ? `<div class="notes"><strong>Notes:</strong> ${data.notes}</div>` : ""}
+  ${data.notes ? `
+  <div class="notes-box">
+    <span class="notes-label">Notes:</span>
+    ${data.notes}
+  </div>` : ""}
 
   <div class="footer">
-    ${company.raison_sociale} — ${company.forme_juridique || ""} au capital de ${company.capital ? Number(company.capital).toLocaleString("fr-MA") : "—"} MAD<br/>
-    ${bankFooter ? `${bankFooter}<br/>` : ""}
+    ${company.raison_sociale} ${company.forme_juridique ? `— ${company.forme_juridique}` : ""} 
+    ${company.capital ? `au capital de ${Number(company.capital).toLocaleString("fr-MA")} MAD` : ""}
+    <br>
     ICE: ${company.ice || "—"} | IF: ${company.if_number || "—"} | RC: ${company.rc || "—"} | Patente: ${company.patente || "—"}
+    <br>
+    ${company.address ? `${company.address}, ` : ""}${company.city || ""} — Maroc
   </div>
 </body>
 </html>`;

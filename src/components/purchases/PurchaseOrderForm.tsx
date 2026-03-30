@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
-import { Plus, Trash2, Loader2, Lock } from "lucide-react";
+import { Plus, Trash2, Loader2, Lock, Building2, User2, Calendar, Hash, Mail, Phone, MapPin, CreditCard } from "lucide-react";
 import { calcPurchaseTotals, type PurchaseLine } from "@/hooks/usePurchases";
 import { useAuth } from "@/hooks/useAuth";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { GlobalDiscountSection, type GlobalDiscount, calcTotalsWithGlobalDiscount } from "@/components/GlobalDiscountSection";
 import { DocumentTotalsBlock } from "@/components/DocumentTotalsBlock";
+import { Separator } from "@/components/ui/separator";
 
 interface Props { editItem: any | null; hook: any; onClose: () => void; }
 
@@ -132,84 +133,171 @@ export function PurchaseOrderForm({ editItem, hook, onClose }: Props) {
   const productOptions = products.map(p => ({ value: p.id, label: `${p.code} — ${p.name}` }));
   const currentPTLabel = paymentTermsOptions.find(o => o.value === paymentTerms)?.label || paymentTerms;
 
+  const selectedSupplier = suppliers.find(s => s.id === supplierId);
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{editItem ? `Modifier BC — ${editItem.number}` : "Nouveau bon de commande fournisseur"}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div><Label>Fournisseur <span className="text-destructive">*</span></Label>
-              <SearchableSelect options={supplierOptions} value={supplierId} onValueChange={handleSupplierChange} placeholder="Sélectionner..." /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="flex items-center gap-1.5">
-                Conditions de paiement
-                {!canEditPaymentTerms && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Lock className="h-3 w-3 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>Seul un Gérant ou Admin peut modifier ce champ</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </Label>
-              {canEditPaymentTerms ? (
-                <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentTermsOptions.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={currentPTLabel} disabled className="bg-muted" />
-              )}
-            </div>
-            <div><Label>Date livraison prévue</Label><Input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} /></div>
-          </div>
-
-          {loading ? <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div> : (
-            <div className="space-y-2">
-              <Label>Lignes de commande</Label>
-              <div className="space-y-1">
-                {lines.map((line, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-1 items-center bg-muted/30 p-2 rounded">
-                    <div className="col-span-3"><SearchableSelect options={productOptions} value={line.product_id || ""} onValueChange={v => updateLine(idx, "product_id", v)} placeholder="Produit..." /></div>
-                    <div className="col-span-3"><Input className="h-8 text-xs" placeholder="Description" value={line.description || ""} onChange={e => updateLine(idx, "description", e.target.value)} /></div>
-                    <div className="col-span-1"><Input className="h-8 text-xs" type="number" placeholder="Qté" min={0} value={line.quantity || ""} onChange={e => updateLine(idx, "quantity", Number(e.target.value))} /></div>
-                    <div className="col-span-2"><Input className="h-8 text-xs" type="number" placeholder="Prix unit." min={0} value={line.unit_price || ""} onChange={e => updateLine(idx, "unit_price", Number(e.target.value))} /></div>
-                    <div className="col-span-2"><Input className="h-8 text-xs" type="number" placeholder="TVA%" min={0} value={line.tva_rate ?? ""} onChange={e => updateLine(idx, "tva_rate", Number(e.target.value))} /></div>
-                    <div className="col-span-1 flex justify-end">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setLines(lines.filter((_, i) => i !== idx))}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+      <DialogContent className="max-w-7xl h-[94vh] flex flex-col p-0 overflow-hidden bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-5xl mx-auto space-y-8 bg-white p-10 rounded-xl shadow-sm border border-slate-200">
+            {/* Header: Issuer vs Supplier */}
+            <div className="grid grid-cols-2 gap-12">
+              {/* Left Column: Issuer (Company) */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-6">
+                  {activeCompany?.logo_url ? (
+                    <img src={activeCompany.logo_url} alt="Logo" className="h-16 w-auto object-contain" />
+                  ) : (
+                    <div className="h-16 w-16 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Building2 className="h-8 w-8 text-primary" />
                     </div>
+                  )}
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 leading-tight">{activeCompany?.raison_sociale || "Ma Société"}</h2>
+                    <p className="text-sm font-medium text-primary uppercase tracking-wider">{activeCompany?.secteur || "Secteur d'activité"}</p>
                   </div>
-                ))}
+                </div>
+
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 mt-0.5 text-slate-400 shrink-0" />
+                    <span>{activeCompany?.address || "Adresse de la société"}, {activeCompany?.city || "Ville"}, {activeCompany?.country || "Maroc"}</span>
+                  </div>
+                  {activeCompany?.phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-slate-400 shrink-0" />
+                      <span>{activeCompany.phone}</span>
+                    </div>
+                  )}
+                  {activeCompany?.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-slate-400 shrink-0" />
+                      <span>{activeCompany.email}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setLines([...lines, emptyLine()])}><Plus className="h-3 w-3 mr-1" /> Ajouter une ligne</Button>
+
+              {/* Right Column: Supplier Selection */}
+              <div className="flex flex-col gap-4">
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-100 flex-1">
+                  <div className="flex items-center gap-2 mb-4 text-slate-400">
+                    <User2 className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-widest">Fournisseur / Destinataire</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <SearchableSelect
+                        options={supplierOptions}
+                        value={supplierId}
+                        onValueChange={handleSupplierChange}
+                        placeholder="Sélectionner un fournisseur..."
+                      />
+                    </div>
+
+                    {selectedSupplier && (
+                      <div className="space-y-2 text-sm pt-2">
+                        <p className="font-bold text-slate-900">{selectedSupplier.name}</p>
+                        <p className="text-slate-600 line-clamp-2">{selectedSupplier.address}</p>
+                        <p className="text-slate-600 font-medium">{selectedSupplier.email}</p>
+                        <p className="text-slate-600">{selectedSupplier.phone}</p>
+                        <div className="pt-2 flex gap-2">
+                          <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-500">ICE: {selectedSupplier.ice || "-"}</span>
+                          <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-500">IF: {selectedSupplier.if_number || "-"}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Document Title and Meta */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pt-6 border-t border-slate-100">
+              <div>
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">BON DE COMMANDE FOURNISSEUR</h1>
+                <p className="text-slate-400 font-medium">Commande officielle émise auprès du fournisseur</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 w-full md:w-auto min-w-[340px]">
+                <div className="space-y-1.5 flex-1 shadow-sm px-4 py-3 bg-primary/5 rounded-xl border border-primary/10">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-primary/70 flex items-center gap-1.5">
+                    <Hash className="h-3 w-3" /> Numéro de document
+                  </Label>
+                  <p className="text-lg font-black text-primary">{editItem?.number || "Brouillon — AUTO"}</p>
+                </div>
+                <div className="space-y-1.5 flex-1 shadow-sm px-4 py-3 bg-white rounded-xl border border-slate-200">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3" /> Date d'émission
+                  </Label>
+                  <p className="text-lg font-bold text-slate-900">{new Date().toLocaleDateString('fr-FR')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase text-slate-500">Date livraison prévue</Label>
+                <Input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)} className="bg-white border-slate-200" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase text-slate-500">Conditions de paiement</Label>
+                {canEditPaymentTerms ? (
+                  <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+                    <SelectTrigger className="bg-white border-slate-200"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {paymentTermsOptions.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={currentPTLabel} disabled className="bg-muted" />
+                )}
+              </div>
+            </div>
+
+            {loading ? <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div> : (
+              <div className="space-y-2">
+                <Label>Lignes de commande</Label>
+                <div className="space-y-1">
+                  {lines.map((line, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-1 items-center bg-muted/30 p-2 rounded">
+                      <div className="col-span-3"><SearchableSelect options={productOptions} value={line.product_id || ""} onValueChange={v => updateLine(idx, "product_id", v)} placeholder="Produit..." /></div>
+                      <div className="col-span-3"><Input className="h-8 text-xs" placeholder="Description" value={line.description || ""} onChange={e => updateLine(idx, "description", e.target.value)} /></div>
+                      <div className="col-span-1"><Input className="h-8 text-xs" type="number" placeholder="Qté" min={0} value={line.quantity || ""} onChange={e => updateLine(idx, "quantity", Number(e.target.value))} /></div>
+                      <div className="col-span-2"><Input className="h-8 text-xs" type="number" placeholder="Prix unit." min={0} value={line.unit_price || ""} onChange={e => updateLine(idx, "unit_price", Number(e.target.value))} /></div>
+                      <div className="col-span-2"><Input className="h-8 text-xs" type="number" placeholder="TVA%" min={0} value={line.tva_rate ?? ""} onChange={e => updateLine(idx, "tva_rate", Number(e.target.value))} /></div>
+                      <div className="col-span-1 flex justify-end">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setLines(lines.filter((_, i) => i !== idx))}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setLines([...lines, emptyLine()])}><Plus className="h-3 w-3 mr-1" /> Ajouter une ligne</Button>
+              </div>
+            )}
 
 
-          <div><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} /></div>
+            <div><Label>Notes</Label><Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} /></div>
 
-          <div className="flex justify-end pt-2 border-t">
-            <DocumentTotalsBlock
-              subtotalHtBrut={totals.subtotalHtBrut}
-              globalDiscountAmount={totals.globalDiscountAmount}
-              subtotalHt={totals.subtotalHt}
-              totalTva={totals.totalTva}
-              totalTtc={totals.totalTtc}
-            />
+            <div className="flex justify-end pt-2 border-t">
+              <DocumentTotalsBlock
+                subtotalHtBrut={totals.subtotalHtBrut}
+                globalDiscountAmount={totals.globalDiscountAmount}
+                subtotalHt={totals.subtotalHt}
+                totalTva={totals.totalTva}
+                totalTtc={totals.totalTtc}
+              />
+            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Annuler</Button>
+            <Button onClick={handleSave} disabled={saving || !supplierId}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Enregistrer
+            </Button>
+          </DialogFooter>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Annuler</Button>
-          <Button onClick={handleSave} disabled={saving || !supplierId}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Enregistrer
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
