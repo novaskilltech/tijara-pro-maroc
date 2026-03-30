@@ -8,6 +8,7 @@ import { ROLE_LABELS } from "@/types/auth";
 import { Badge } from "@/components/ui/badge";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { ThemeToggle } from "./ThemeToggle";
+import { TextSizeToggle } from "./TextSizeToggle";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -42,6 +43,7 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
             {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-2">
+            <TextSizeToggle />
             <ThemeToggle />
             <CompanySwitcher />
             <button className="p-2 rounded-md hover:bg-muted transition-colors relative text-muted-foreground hover:text-foreground">

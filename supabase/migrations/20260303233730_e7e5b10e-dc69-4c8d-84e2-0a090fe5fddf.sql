@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_sales_order_lines_company ON public.sales_order_l
 CREATE INDEX IF NOT EXISTS idx_stock_levels_company ON public.stock_levels(company_id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_company ON public.stock_movements(company_id);
 CREATE INDEX IF NOT EXISTS idx_stock_transfers_company ON public.stock_transfers(company_id);
-CREATE INDEX IF NOT EXISTS idx_supplier_invoice_lines_company ON public.supplier_invoice_lines(company_id);
+-- CREATE INDEX IF NOT EXISTS idx_supplier_invoice_lines_company ON public.supplier_invoice_lines(company_id);
 CREATE INDEX IF NOT EXISTS idx_warehouses_company ON public.warehouses(company_id);
 
 -- 2) FIX UNIQUE CONSTRAINTS TO BE COMPANY-SCOPED

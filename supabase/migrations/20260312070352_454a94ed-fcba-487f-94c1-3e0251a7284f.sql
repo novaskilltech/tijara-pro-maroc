@@ -15,23 +15,23 @@ ALTER TABLE public.reception_line_allocations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own company reception_line_allocations"
   ON public.reception_line_allocations
   FOR SELECT TO authenticated
-  USING (company_id IN (SELECT auth_user_company_ids()));
+  USING (user_has_company(auth.uid(), company_id));
 
 CREATE POLICY "Users can insert own company reception_line_allocations"
   ON public.reception_line_allocations
   FOR INSERT TO authenticated
-  WITH CHECK (company_id IN (SELECT auth_user_company_ids()));
+  WITH CHECK (user_has_company(auth.uid(), company_id));
 
 CREATE POLICY "Users can update own company reception_line_allocations"
   ON public.reception_line_allocations
   FOR UPDATE TO authenticated
-  USING (company_id IN (SELECT auth_user_company_ids()))
-  WITH CHECK (company_id IN (SELECT auth_user_company_ids()));
+  USING (user_has_company(auth.uid(), company_id))
+  WITH CHECK (user_has_company(auth.uid(), company_id));
 
 CREATE POLICY "Users can delete own company reception_line_allocations"
   ON public.reception_line_allocations
   FOR DELETE TO authenticated
-  USING (company_id IN (SELECT auth_user_company_ids()));
+  USING (user_has_company(auth.uid(), company_id));
 
 CREATE POLICY "Admins can manage all reception_line_allocations"
   ON public.reception_line_allocations

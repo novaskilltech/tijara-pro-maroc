@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-tijarapro.jpg";
 import { LogIn, UserPlus } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TextSizeToggle } from "@/components/TextSizeToggle";
 
 export function LandingNavbar() {
   const scrollToTop = () => {
@@ -29,6 +30,7 @@ export function LandingNavbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <TextSizeToggle />
           <ThemeToggle />
           <Link to="/auth/login">
             <Button variant="ghost" className="hidden sm:flex gap-2 text-foreground">
