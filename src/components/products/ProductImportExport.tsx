@@ -24,9 +24,9 @@ export function ProductImportExport({ products, onImportDone }: ProductImportExp
   const [imported, setImported] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     const formattedData = excelExport.formatProductsForExport(products);
-    excelExport.exportToExcel(
+    await excelExport.exportToExcel(
       formattedData, 
       `produits_${new Date().toISOString().slice(0, 10)}`,
       "Produits"

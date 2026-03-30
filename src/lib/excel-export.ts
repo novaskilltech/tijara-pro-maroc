@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
 
 /**
  * Utilitaires pour l'export Excel dans TIJARAPRO
@@ -7,7 +7,10 @@ export const excelExport = {
   /**
    * Génère et télécharge un fichier Excel à partir d'un tableau d'objets
    */
-  exportToExcel: (data: any[], filename: string, sheetName: string = "Données") => {
+  exportToExcel: async (data: any[], filename: string, sheetName: string = "Données") => {
+    // Import dynamique pour alléger le build et éviter les crashs Rollup
+    const XLSX = await import('xlsx');
+    
     // Créer un classeur
     const wb = XLSX.utils.book_new();
     
@@ -18,7 +21,7 @@ export const excelExport = {
     const colWidths = Object.keys(data[0] || {}).map(key => ({
       wch: Math.max(key.length, ...data.map(row => String(row[key] || "").length)) + 2
     }));
-    ws['!cols'] = colWidths;
+    ws['!cols'] = colWidths as any;
     
     // Ajouter la feuille au classeur
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
