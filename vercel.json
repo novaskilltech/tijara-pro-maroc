@@ -1,0 +1,4 @@
+{
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=4096 npm run build"
+}

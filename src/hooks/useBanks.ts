@@ -19,9 +19,6 @@ export function useBanks() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
-  // Use a type-safe but flexible query by casting to any if types are missing
-  const banksTable = (supabase as any).from("banks");
-
   const fetchBanks = useCallback(async () => {
     if (!companyId) {
       setBanks([]);
@@ -29,7 +26,8 @@ export function useBanks() {
       return;
     }
     setLoading(true);
-    const { data, error } = await banksTable
+    const { data, error } = await (supabase as any)
+      .from("banks")
       .select("*")
       .eq("company_id", companyId)
       .order("name", { ascending: true });
@@ -40,7 +38,7 @@ export function useBanks() {
       return;
     }
     setBanks((data as Bank[]) || []);
-  }, [companyId, banksTable]);
+  }, [companyId]);
 
   useEffect(() => {
     fetchBanks();
@@ -48,7 +46,8 @@ export function useBanks() {
 
   const createBank = async (record: Partial<Bank>) => {
     if (!companyId) return null;
-    const { data, error } = await banksTable
+    const { data, error } = await (supabase as any)
+      .from("banks")
       .insert({ ...record, company_id: companyId })
       .select()
       .single();
@@ -63,7 +62,8 @@ export function useBanks() {
   };
 
   const updateBank = async (id: string, record: Partial<Bank>) => {
-    const { data, error } = await banksTable
+    const { data, error } = await (supabase as any)
+      .from("banks")
       .update(record)
       .eq("id", id)
       .select()
@@ -79,7 +79,7 @@ export function useBanks() {
   };
 
   const deleteBank = async (id: string) => {
-    const { error } = await banksTable.delete().eq("id", id);
+    const { error } = await (supabase as any).from("banks").delete().eq("id", id);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return false;

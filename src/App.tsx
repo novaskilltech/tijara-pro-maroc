@@ -53,8 +53,7 @@ const BankAccountsPage = lazy(() => import("./pages/master/BankAccountsPage"));
 const CashRegistersPage = lazy(() => import("./pages/CashRegistersPage"));
 
 // Configurations
-// const CategoriesPage = lazy(() => import("./pages/master/CategoriesPage"));
-const CategoriesPage = () => <div>Categories Dummy</div>;
+const CategoriesPage = lazy(() => import("./pages/master/CategoriesPage"));
 const PaymentTermsPage = lazy(() => import("./pages/config/PaymentTermsPage"));
 const UnitsOfMeasurePage = lazy(() => import("./pages/config/UnitsOfMeasurePage"));
 const TvaRatesPage = lazy(() => import("./pages/config/TvaRatesPage"));
