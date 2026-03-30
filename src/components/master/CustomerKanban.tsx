@@ -36,7 +36,7 @@ export function CustomerKanban({ customers, stats, onView }: CustomerKanbanProps
         return (
           <div
             key={c.id}
-            className={`rounded-xl border p-5 cursor-pointer group transition-all duration-[250ms] ease-in-out hover:-translate-y-[3px] hover:scale-[1.01] hover:shadow-[0_8px_30px_-8px_hsl(195,78%,53%,0.18)] bg-gradient-to-br from-card via-card to-accent/20 backdrop-blur-sm ${getAccent(c)}`}
+            className={`rounded-xl border p-5 cursor-pointer group transition-all duration-300 ease-in-out hover:-translate-y-[3px] hover:scale-[1.01] hover:shadow-[0_8px_30px_-8px_hsl(195,78%,53%,0.18)] bg-gradient-to-br from-card via-card to-accent/20 backdrop-blur-sm ${getAccent(c)}`}
             onClick={() => onView(c)}
           >
             {/* Header */}
