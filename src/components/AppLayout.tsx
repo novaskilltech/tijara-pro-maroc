@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { TextSizeToggle } from "./TextSizeToggle";
+import { ViewportToggle } from "./ViewportToggle";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -43,6 +44,7 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
             {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-2">
+            <ViewportToggle />
             <TextSizeToggle />
             <ThemeToggle />
             <CompanySwitcher />

@@ -12,6 +12,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "next-themes";
 import { TextSizeProvider } from "@/contexts/TextSizeContext";
+import { ViewportProvider } from "@/contexts/ViewportContext";
 
 
 // Pages avec Lazy Loading
@@ -131,6 +132,7 @@ queryClient.getQueryCache().subscribe(() => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="tijara-theme">
+      <ViewportProvider>
       <TextSizeProvider>
       <TooltipProvider>
         <Toaster />
@@ -232,6 +234,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
     </TextSizeProvider>
+    </ViewportProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
