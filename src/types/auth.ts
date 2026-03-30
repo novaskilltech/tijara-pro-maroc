@@ -31,9 +31,10 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 
 // Module access mapping
 export const ROLE_MODULE_ACCESS: Record<string, AppRole[]> = {
-  "/home": ["super_admin", "admin", "accountant", "sales", "stock_manager"],
+  "/home": ["super_admin", "admin", "accountant", "sales", "stock_manager", "purchase"],
   "/tableaux-de-bord": ["super_admin", "admin"],
   "/referentiel": ["super_admin", "admin", "accountant", "sales", "stock_manager"],
+  "/referentiel/clients": ["super_admin", "admin", "sales", "accountant"],
   "/achats": ["super_admin", "admin", "accountant", "purchase"],
   "/achats/demandes": ["super_admin", "admin", "accountant", "purchase"],
   "/achats/commandes": ["super_admin", "admin", "accountant", "purchase"],
@@ -59,7 +60,6 @@ export const ROLE_MODULE_ACCESS: Record<string, AppRole[]> = {
   "/reglements/decaissements": ["super_admin", "admin", "accountant"],
   "/reglements/rapprochement": ["super_admin", "admin", "accountant"],
   "/reglements/impayes": ["super_admin", "admin", "accountant"],
-  "/achats/depenses": ["super_admin", "admin", "accountant"],
   "/depenses": ["super_admin", "admin", "accountant"],
   "/config": ["super_admin", "admin"],
   "/config/categories": ["super_admin", "admin"],
@@ -94,7 +94,7 @@ export function getFirstAccessibleRoute(roles: AppRole[]): string {
   ];
   for (const route of orderedRoutes) {
     const allowedRoles = ROLE_MODULE_ACCESS[route];
-    if (!allowedRoles || allowedRoles.some((r) => roles.includes(r))) {
+    if (allowedRoles && allowedRoles.some((r) => roles.includes(r))) {
       return route;
     }
   }

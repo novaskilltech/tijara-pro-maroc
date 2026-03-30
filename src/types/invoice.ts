@@ -58,6 +58,7 @@ export interface CreditNote {
   updated_at: string;
   customer?: { name: string } | null;
   supplier?: { name: string } | null;
+  company?: { name: string } | null;
   invoice?: { invoice_number: string } | null;
 }
 
@@ -87,27 +88,27 @@ export interface InvoiceAttachment {
   created_at: string;
 }
 
-export function calcLineTotals(qty: number, unitPrice: number, discountPct: number, tvaRate: number) {
+export function calcLineTotals(qty: number, unitPrice: number, discountPct: number = 0, tvaRate: number = 0) {
   const baseHt = qty * unitPrice;
   const discountAmount = baseHt * (discountPct / 100);
   const total_ht = baseHt - discountAmount;
   const total_tva = total_ht * (tvaRate / 100);
   const total_ttc = total_ht + total_tva;
   return {
-    total_ht: Math.round(total_ht * 100) / 100,
-    total_tva: Math.round(total_tva * 100) / 100,
-    total_ttc: Math.round(total_ttc * 100) / 100,
+    total_ht: Math.round((total_ht + Number.EPSILON) * 100) / 100,
+    total_tva: Math.round((total_tva + Number.EPSILON) * 100) / 100,
+    total_ttc: Math.round((total_ttc + Number.EPSILON) * 100) / 100,
   };
 }
 
-export const INVOICE_STATUS_LABELS: Record<string, string> = {
+export const INVOICE_STATUS_LABELS: Record<Invoice["status"], string> = {
   draft: "Brouillon",
   validated: "Validée",
   cancelled: "Annulée",
   paid: "Payée",
 };
 
-export const CREDIT_NOTE_STATUS_LABELS: Record<string, string> = {
+export const CREDIT_NOTE_STATUS_LABELS: Record<CreditNote["status"], string> = {
   draft: "Brouillon",
   validated: "Validé",
   cancelled: "Annulé",

@@ -46,7 +46,7 @@ export function Breadcrumbs() {
 
   return (
     <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-      <Link to="/" className="hover:text-foreground transition-colors flex items-center gap-1">
+      <Link to="/home" className="hover:text-foreground transition-colors flex items-center gap-1">
         <Home className="h-3.5 w-3.5" />
       </Link>
       {segments.map((segment, i) => {
