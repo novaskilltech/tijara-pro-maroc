@@ -53,7 +53,8 @@ const BankAccountsPage = lazy(() => import("./pages/master/BankAccountsPage"));
 const CashRegistersPage = lazy(() => import("./pages/CashRegistersPage"));
 
 // Configurations
-const CategoriesPage = lazy(() => import("./pages/master/CategoriesPage"));
+// const CategoriesPage = lazy(() => import("./pages/master/CategoriesPage"));
+const CategoriesPage = () => <div>Categories Dummy</div>;
 const PaymentTermsPage = lazy(() => import("./pages/config/PaymentTermsPage"));
 const UnitsOfMeasurePage = lazy(() => import("./pages/config/UnitsOfMeasurePage"));
 const TvaRatesPage = lazy(() => import("./pages/config/TvaRatesPage"));
@@ -186,43 +187,35 @@ const App = () => (
                 <Route path="/config/banques" element={<ProtectedRoute><BanksPage /></ProtectedRoute>} />
                 <Route path="/config/devises" element={<ProtectedRoute><CurrenciesPage /></ProtectedRoute>} />
 
-                {/* Achats */}
+                {/* Achats, Stock, Ventes, Facturation, Reglements */}
                 <Route path="/achats" element={<Navigate to="/achats/demandes" replace />} />
                 <Route path="/achats/demandes" element={<ProtectedRoute><DemandesAchat /></ProtectedRoute>} />
                 <Route path="/achats/commandes" element={<ProtectedRoute><CommandesFournisseurs /></ProtectedRoute>} />
                 <Route path="/achats/depenses" element={<ProtectedRoute><Depenses /></ProtectedRoute>} />
 
-                {/* Stock */}
                 <Route path="/stock/niveaux" element={<ProtectedRoute><NiveauxStock /></ProtectedRoute>} />
                 <Route path="/stock/transferts" element={<ProtectedRoute><Transferts /></ProtectedRoute>} />
                 <Route path="/stock/receptions" element={<ProtectedRoute><Receptions /></ProtectedRoute>} />
                 <Route path="/stock/livraisons" element={<ProtectedRoute><BonsLivraison /></ProtectedRoute>} />
                 <Route path="/stock/inventaires" element={<ProtectedRoute><Inventaires /></ProtectedRoute>} />
 
-                {/* Ventes */}
                 <Route path="/ventes/devis" element={<ProtectedRoute><Devis /></ProtectedRoute>} />
                 <Route path="/ventes/commandes" element={<ProtectedRoute><CommandesClients /></ProtectedRoute>} />
-                {/* Legacy redirect for old livraisons route */}
                 <Route path="/ventes/livraisons" element={<ProtectedRoute><BonsLivraison /></ProtectedRoute>} />
 
-                {/* Facturation */}
                 <Route path="/facturation/clients" element={<ProtectedRoute><FacturesClients /></ProtectedRoute>} />
                 <Route path="/facturation/fournisseurs" element={<ProtectedRoute><FacturesFournisseurs /></ProtectedRoute>} />
                 <Route path="/facturation/avoirs" element={<ProtectedRoute><Avoirs /></ProtectedRoute>} />
                 <Route path="/facturation/exports" element={<ProtectedRoute><ExportsJournaux /></ProtectedRoute>} />
 
-                {/* Règlements */}
                 <Route path="/reglements/encaissements" element={<ProtectedRoute><Encaissements /></ProtectedRoute>} />
                 <Route path="/reglements/decaissements" element={<ProtectedRoute><Decaissements /></ProtectedRoute>} />
                 <Route path="/reglements/rapprochement" element={<ProtectedRoute><Rapprochement /></ProtectedRoute>} />
                 <Route path="/reglements/impayes" element={<ProtectedRoute><Impayes /></ProtectedRoute>} />
 
-                {/* Legacy redirect for old depenses route */}
                 <Route path="/depenses" element={<ProtectedRoute><Depenses /></ProtectedRoute>} />
-                {/* Legacy redirect for old receptions route */}
                 <Route path="/achats/receptions" element={<ProtectedRoute><Receptions /></ProtectedRoute>} />
 
-                {/* Documents */}
                 <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
 
                 <Route path="*" element={<NotFound />} />
