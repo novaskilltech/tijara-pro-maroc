@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Loader2, AlertCircle, CheckCircle2, Download } from "lucid-react";
+import { Upload, Loader2, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 
 interface SupplierImportProps {

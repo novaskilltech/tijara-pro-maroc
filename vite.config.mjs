@@ -13,9 +13,27 @@ export default defineConfig({
     },
   },
   build: {
-    minify: false,
-    terserOptions: undefined,
+    target: 'esnext',
+    minify: 'esbuild',
+    cssMinify: true,
     sourcemap: false,
-    chunkSizeWarningLimit: 5000,
+    chunkSizeWarningLimit: 1500,
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('lucide-react')) return 'vendor-lucide';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('react')) return 'vendor-react';
+            return 'vendor-common';
+          }
+        },
+      },
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+        warn(warning);
+      },
+    },
   },
 });

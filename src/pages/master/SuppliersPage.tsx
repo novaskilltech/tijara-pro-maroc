@@ -11,7 +11,7 @@ import { ViewToggle } from "@/components/ViewToggle";
 import { AdvancedSearch, applyAdvancedSearch, type SearchOperator, type SearchableField, type FilterOption, type QuickFilter } from "@/components/AdvancedSearch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Truck, AlertCircle, AlertTriangle, Plus, Copy, Download, Upload } from "lucid-react";
+import { Truck, AlertCircle, AlertTriangle, Plus, Copy, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { excelExport } from "@/lib/excel-export";
 import { usePermissions } from "@/hooks/usePermissions";
